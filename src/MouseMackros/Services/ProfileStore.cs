@@ -189,6 +189,14 @@ public static class ProfileStore
             }
 
             MouseButtonMap.NormalizeBindings(profile);
+
+            if (profile.Match.Processes.Count == 0 &&
+                !string.IsNullOrWhiteSpace(profile.ApplicationPath) &&
+                !profile.IsFallback)
+            {
+                var process = Path.GetFileNameWithoutExtension(profile.ApplicationPath);
+                if (!string.IsNullOrWhiteSpace(process)) profile.Match.Processes.Add(process);
+            }
         }
 
         if (config.Profiles.Count == 0)
