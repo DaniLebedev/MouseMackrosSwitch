@@ -12,7 +12,9 @@ public static class StartupService
         get
         {
             var exe = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "MouseMackros.exe");
-            return $"\"{exe}\" --silent";
+            var dataDir = ProfileStore.DataDirectoryOverride;
+            var extra = dataDir is null ? "" : $" --data-dir \"{dataDir}\"";
+            return $"\"{exe}\" --silent{extra}";
         }
     }
 
@@ -40,7 +42,7 @@ public static class StartupService
         }
         catch (Exception ex)
         {
-            ConfigService.Log("Автозапуск: " + ex.Message);
+            ProfileStore.Log("Автозапуск: " + ex.Message);
         }
     }
 }

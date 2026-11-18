@@ -4,26 +4,19 @@ using MouseMackros.Model;
 namespace MouseMackros.Services;
 
 /// <summary>
-/// Ready made profiles. Triggers Ctrl+Alt+Shift+A..M are the ones written into the
-/// MBF1000PRO profile by <see cref="PsfGenerator"/>.
+/// First run profiles. Only a fallback profile and one browser example are
+/// created — the user builds the rest from the button list.
 /// </summary>
 public static class Presets
 {
     public const string TriggerPrefix = "Ctrl+Alt+Shift+";
 
-    public static readonly string[] TriggerLetters =
-        { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M" };
-
-    public static string TriggerFor(int index) =>
-        Trigger.Key(TriggerPrefix + TriggerLetters[index % TriggerLetters.Length]).ToString();
-
     public static AppConfig CreateDefault()
     {
         var config = new AppConfig();
+        config.DefaultProfileId = "default";
         config.Profiles.Add(CreateDefaultProfile());
         config.Profiles.Add(CreateBrowser());
-        config.Profiles.Add(CreateGames());
-        config.Profiles.Add(CreateMedia());
         return config;
     }
 
@@ -37,8 +30,9 @@ public static class Presets
             IsFallback = true,
             Match = new MatchRules { Priority = -100 }
         };
-        p.Bindings.Add(Make("mouse:X1", ActionKind.Keys, "Alt+Left", "Боковая 1 — назад"));
-        p.Bindings.Add(Make("mouse:X2", ActionKind.Keys, "Alt+Right", "Боковая 2 — вперёд"));
+
+        p.Bindings.Add(Button(1, ActionKind.Keys, "Alt+Left", "Назад"));
+        p.Bindings.Add(Button(2, ActionKind.Keys, "Alt+Right", "Вперёд"));
         return p;
     }
 
@@ -53,150 +47,56 @@ public static class Presets
             {
                 Processes =
                 {
-                    "chrome", "msedge", "firefox", "brave", "opera", "vivaldi", "browser",
+                    "chrome", "msedge", "firefox", "brave", "opera", "vivaldi",
                     "yandex", "librewolf", "thorium", "arc"
                 },
                 Priority = 20
             }
         };
 
-        var items = new (int idx, string combo, string label)[]
+        var items = new (int button, string combo, string label)[]
         {
-            (0, "Alt+Left", "Назад"),
-            (1, "Alt+Right", "Вперёд"),
-            (2, "Ctrl+Tab", "Вкладка вправо"),
-            (3, "Ctrl+Shift+Tab", "Вкладка влево"),
-            (4, "Ctrl+T", "Новая вкладка"),
-            (5, "Ctrl+W", "Закрыть вкладку"),
-            (6, "Ctrl+Shift+T", "Вернуть вкладку"),
-            (7, "F5", "Обновить страницу"),
-            (8, "Ctrl+F", "Поиск на странице"),
-            (9, "Ctrl+L", "Адресная строка"),
-            (10, "F11", "Полный экран"),
-            (11, "Ctrl+Oem=", "Масштаб +"),
-            (12, "Ctrl+Oem-", "Масштаб −")
+            (1, "Alt+Left", "Назад"),
+            (2, "Alt+Right", "Вперёд"),
+            (3, "Ctrl+Tab", "Вкладка вправо"),
+            (4, "Ctrl+Shift+Tab", "Вкладка влево"),
+            (5, "Ctrl+T", "Новая вкладка"),
+            (6, "Ctrl+W", "Закрыть вкладку"),
+            (7, "Ctrl+Shift+T", "Вернуть вкладку"),
+            (8, "F5", "Обновить страницу"),
+            (9, "Ctrl+F", "Поиск на странице"),
+            (10, "Ctrl+L", "Адресная строка"),
+            (11, "F11", "Полный экран")
         };
 
-        foreach (var (idx, combo, label) in items)
-        {
-            p.Bindings.Add(new Binding
-            {
-                Trigger = TriggerFor(idx),
-                Label = label,
-                Action = new ActionSpec { Kind = ActionKind.Keys, Value = combo }
-            });
-        }
+        foreach (var (button, combo, label) in items)
+            p.Bindings.Add(Button(button, ActionKind.Keys, combo, label));
 
-        p.Bindings.Add(Make("mouse:X1", ActionKind.Keys, "Alt+Left", "Боковая 1 — назад"));
-        p.Bindings.Add(Make("mouse:X2", ActionKind.Keys, "Alt+Right", "Боковая 2 — вперёд"));
-        return p;
-    }
-
-    public static Profile CreateGames()
-    {
-        var p = new Profile
-        {
-            Id = "games",
-            Name = "Игры",
-            Accent = "#F0645A",
-            Match = new MatchRules { Priority = 30 }
-        };
-
-        for (int i = 0; i < 9; i++)
-        {
-            p.Bindings.Add(new Binding
-            {
-                Trigger = TriggerFor(i),
-                Label = $"Слот {i + 1}",
-                Action = new ActionSpec { Kind = ActionKind.Keys, Value = (i + 1).ToString() }
-            });
-        }
-
-        var extra = new (string combo, string label)[]
-        {
-            ("Q", "Способность Q"),
-            ("E", "Способность E"),
-            ("R", "Способность R"),
-            ("F", "Способность F"),
-            ("Shift", "Бег"),
-            ("Space", "Прыжок"),
-            ("Ctrl", "Присесть"),
-            ("Tab", "Карта / счёт"),
-            ("Esc", "Меню"),
-            ("G", "Граната"),
-            ("V", "Ближний бой"),
-            ("B", "Магазин"),
-            ("T", "Чат-колесо")
-        };
-        for (int i = 0; i < extra.Length; i++)
-        {
-            p.Bindings.Add(new Binding
-            {
-                Trigger = TriggerFor(9 + i),
-                Label = extra[i].label,
-                Action = new ActionSpec { Kind = ActionKind.Keys, Value = extra[i].combo }
-            });
-        }
-
-        // Example of a one-click macro (shows the syntax in the editor).
+        // Sample macro, kept as documentation of the syntax.
         p.Bindings.Add(new Binding
         {
-            Trigger = "wheel:Up",
-            Label = "Пример макроса: рывок",
+            Button = 15,
+            Trigger = MouseButtonMap.TriggerFor(15),
+            Label = "Пример макроса",
             Action = new ActionSpec
             {
                 Kind = ActionKind.Macro,
                 Mode = MacroMode.Once,
-                Repeat = 0,
-                Script = "# Нажмите «Тест», чтобы попробовать\npress Space\n delay 60\n press Shift\n delay 200"
+                Script = "# Пример макроса: двойной клик\npress mouse:left\n delay 80\n press mouse:left"
             }
         });
 
         return p;
     }
 
-    public static Profile CreateMedia()
+    private static Binding Button(int number, ActionKind kind, string value, string label) => new()
     {
-        var p = new Profile
-        {
-            Id = "media",
-            Name = "Музыка и видео",
-            Accent = "#9B6BF2",
-            Match = new MatchRules
-            {
-                Processes = { "spotify", "vlc", "aimp", "musicbee", "foobar2000", "wmplayer", "mpc-hc64", "mpc-be64" },
-                Priority = 10
-            }
-        };
-
-        var items = new (string media, string label)[]
-        {
-            ("PlayPause", "Play / пауза"),
-            ("Next", "Следующий трек"),
-            ("Previous", "Предыдущий трек"),
-            ("Stop", "Стоп"),
-            ("VolumeUp", "Громче"),
-            ("VolumeDown", "Тише"),
-            ("VolumeMute", "Без звука")
-        };
-
-        for (int i = 0; i < items.Length; i++)
-        {
-            p.Bindings.Add(new Binding
-            {
-                Trigger = TriggerFor(i),
-                Label = items[i].label,
-                Action = new ActionSpec { Kind = ActionKind.Media, Value = items[i].media }
-            });
-        }
-
-        return p;
-    }
-
-    private static Binding Make(string trigger, ActionKind kind, string value, string label) => new()
-    {
-        Trigger = trigger,
+        Button = number,
+        Trigger = MouseButtonMap.TriggerFor(number),
         Label = label,
         Action = new ActionSpec { Kind = kind, Value = value }
     };
+
+    /// <summary>Trigger for an editable button, used by <see cref="PsfGenerator"/>.</summary>
+    public static string TriggerForButton(int number) => MouseButtonMap.TriggerFor(number);
 }

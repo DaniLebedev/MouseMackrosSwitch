@@ -5,20 +5,23 @@ namespace MouseMackros.Services;
 
 /// <summary>
 /// Writes a ready to import .psf profile for the MBF1000PRO Mouse utility.
-/// Every extra button becomes Ctrl+Alt+Shift+A..M, which MouseMackros then
+/// Every editable button becomes Ctrl+Alt+Shift+A..M, which MouseMackros then
 /// remaps per application.
 ///
 /// .psf is a plain UTF-16 INI file. Key values use the vendor's 3 byte encoding:
 ///   [type][modifier mask][key code]  (hex)
 /// Type 0x70 = single key / key combination, modifiers: 1 Ctrl, 2 Shift, 4 Alt, 8 Win.
 /// Key codes: A..Z = 0x04..0x1D, 1..9,0 = 0x1E..0x27 (derived from stock profiles).
+///
+/// The letter order follows the physical buttons, not the .psf slot order, see
+/// <see cref="MouseButtonMap"/>: button 1 = Key7 = A, button 7 = Key14 = G, ...
 /// </summary>
 public static class PsfGenerator
 {
     private const int TypeKeyboard = 0x70;
     private const int ModCtrlShiftAlt = 0x07;
 
-    public sealed record GeneratedProfile(string Path, string ProfileName, Dictionary<int, string> KeyTriggers);
+    public sealed record GeneratedProfile(string Path, string ProfileName, Dictionary<int, string> ButtonTriggers);
 
     /// <summary>Folder where the vendor utility keeps profiles for the current user.</summary>
     public static string? FindVendorConfigDir()
@@ -72,11 +75,18 @@ public static class PsfGenerator
     public static string EncodeLetterTrigger(char letter) =>
         EncodeCombo(ModCtrlShiftAlt, LetterCode(letter));
 
+    /// <summary>
+    /// Builds the profile from a vendor template. Without <paramref name="outputDirectory"/>
+    /// the file lands in <see cref="ProfileStore.PsfDir"/> and never in the vendor folder,
+    /// so nothing in the vendor configuration is modified behind the user's back.
+    /// </summary>
     public static GeneratedProfile? Generate(string? outputDirectory = null, string profileName = "MouseMackros")
     {
         var templatePath = FindTemplate();
-        var targetDir = outputDirectory ?? FindVendorConfigDir();
-        if (templatePath is null || targetDir is null) return null;
+        if (templatePath is null) return null;
+
+        var targetDir = outputDirectory ?? ProfileStore.EnsurePsfDirectory();
+        Directory.CreateDirectory(targetDir);
         return WriteProfile(templatePath, Path.Combine(targetDir, "MouseMackros.psf"), profileName);
     }
 
@@ -101,15 +111,16 @@ public static class PsfGenerator
         SetValue(lines, "Key2Value", "100400");
 
         var triggers = new Dictionary<int, string>();
-        var letters = Presets.TriggerLetters;
-        for (int i = 0; i < letters.Length; i++)
+        foreach (var button in MouseButtonMap.Editable)
         {
-            int keyIndex = i + 3;
-            char letter = letters[i][0];
-            SetValue(lines, $"Key{keyIndex}Name", "MM:" + letter);
-            SetValue(lines, $"Key{keyIndex}Value", EncodeLetterTrigger(letter));
-            SetValue(lines, $"MacroKey{keyIndex}Name", "");
-            triggers[keyIndex] = $"Ctrl+Alt+Shift+{letter}";
+            if (button.Letter is not char letter) continue;
+
+            SetValue(lines, $"Key{button.KeyIndex}Name", "MM:" + letter);
+            SetValue(lines, $"Key{button.KeyIndex}Value", EncodeLetterTrigger(letter));
+            SetValue(lines, $"MacroKey{button.KeyIndex}Name", "");
+
+            var combo = "Ctrl+Alt+Shift+" + letter;
+            triggers[button.Number] = combo;
         }
 
         var directory = Path.GetDirectoryName(Path.GetFullPath(targetPath));

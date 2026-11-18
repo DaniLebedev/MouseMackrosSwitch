@@ -29,14 +29,18 @@ Console.WriteLine();
 
 // ---------------------------------------------------------------- presets
 var config = Presets.CreateDefault();
-Check("4 профиля по умолчанию", config.Profiles.Count == 4, config.Profiles.Count.ToString());
+Check("2 профиля по умолчанию", config.Profiles.Count == 2, config.Profiles.Count.ToString());
 Check("резервный профиль = default", config.FallbackProfile.Id == "default", config.FallbackProfile.Id);
-Check("в браузере 15 действий", config.Profiles[1].Bindings.Count == 15,
+Check("браузер: 12 действий", config.Profiles[1].Bindings.Count == 12,
     config.Profiles[1].Bindings.Count.ToString());
+Check("браузер: все действия на кнопках",
+    config.Profiles[1].Bindings.All(b => b.Button is >= 1 and <= 16));
+Check("браузер: триггеры - Ctrl+Alt+Shift",
+    config.Profiles[1].Bindings.All(b => b.Trigger.StartsWith("key:Ctrl+Shift+Alt+")));
 
 // ---------------------------------------------------------------- json round trip
-var json = JsonSerializer.Serialize(config, ConfigService.JsonOptions);
-var back = JsonSerializer.Deserialize<AppConfig>(json, ConfigService.JsonOptions)!;
+var json = JsonSerializer.Serialize(config, ProfileStore.JsonOptions);
+var back = JsonSerializer.Deserialize<AppConfig>(json, ProfileStore.JsonOptions)!;
 Check("JSON: профили сохраняются", back.Profiles.Count == config.Profiles.Count);
 Check("JSON: действия сохраняются",
     back.Profiles[1].Bindings.Count == config.Profiles[1].Bindings.Count);
@@ -46,6 +50,8 @@ Check("JSON: тип действия читается",
 Check("JSON: триггер сохраняется",
     back.Profiles[1].Bindings[0].Trigger == config.Profiles[1].Bindings[0].Trigger,
     back.Profiles[1].Bindings[0].Trigger);
+Check("JSON: номер кнопки сохраняется", back.Profiles[1].Bindings[0].Button == 1,
+    back.Profiles[1].Bindings[0].Button.ToString());
 
 // ---------------------------------------------------------------- wildcard matching
 Check("wildcard: chrome == chrome", ProfileEngine.Wildcard("chrome", "chrome"));
@@ -74,6 +80,23 @@ Check("триггер mouse round trip", Trigger.Parse("mouse:X1").ToString() ==
 Check("триггер wheel", Trigger.Parse("wheel:Down").DisplayName.Contains("вниз"),
     Trigger.Parse("wheel:Down").DisplayName);
 Check("пустой триггер", Trigger.Parse("").IsEmpty);
+
+// ---------------------------------------------------------------- button map
+Check("16 кнопок в карте", MouseButtonMap.All.Count == 16, MouseButtonMap.All.Count.ToString());
+Check("13 редактируемых кнопок", MouseButtonMap.Editable.Count() == 13,
+    MouseButtonMap.Editable.Count().ToString());
+Check("кнопка 1 → Key7", MouseButtonMap.Get(1)?.KeyIndex == 7);
+Check("кнопка 7 → Key14", MouseButtonMap.Get(7)?.KeyIndex == 14);
+Check("кнопка 9 → Key13", MouseButtonMap.Get(9)?.KeyIndex == 13);
+Check("кнопка 12 = ЛКМ, не редактируется", MouseButtonMap.Get(12) is { Editable: false, KeyIndex: 0 });
+Check("триггер кнопки 1", MouseButtonMap.TriggerFor(1) == "key:Ctrl+Shift+Alt+A",
+    MouseButtonMap.TriggerFor(1));
+Check("кнопка 1 по триггеру", MouseButtonMap.ButtonForTrigger(MouseButtonMap.TriggerFor(1)) == 1);
+Check("кнопка 16 по триггеру", MouseButtonMap.ButtonForTrigger("key:Ctrl+Alt+Shift+M") == 16,
+    MouseButtonMap.ButtonForTrigger("key:Ctrl+Alt+Shift+M").ToString());
+Check("обычное сочетание не кнопка", MouseButtonMap.ButtonForTrigger("key:Ctrl+C") == 0);
+Check("X1 не кнопка", MouseButtonMap.ButtonForTrigger("mouse:X1") == 0);
+Check("кнопки 12-14 не назначаются", MouseButtonMap.TriggerFor(12) == "" && MouseButtonMap.TriggerFor(14) == "");
 
 // ---------------------------------------------------------------- macro parser
 var steps = MacroScript.Parse("""
@@ -117,18 +140,83 @@ if (vendorDir is not null)
         Check("psf: BOM UTF-16", bytes.Length > 2 && bytes[0] == 0xFF && bytes[1] == 0xFE);
         var text = File.ReadAllText(temp, Encoding.Unicode);
         Check("psf: имя профиля", text.Contains("ProfileName=MouseMackros"));
-        Check("psf: триггер A в слоте 3", text.Contains("Key3Value=700704"));
-        Check("psf: триггер M в слоте 15", text.Contains("Key15Value=700710"));
-        Check("psf: ЛКМ сохранена", text.Contains("Key0Value=100100"));
+        Check("psf: кнопка 1 = Key7 = A", text.Contains("Key7Value=700704"));
+        Check("psf: кнопка 7 = Key14 = G", text.Contains("Key14Value=70070A"));
+        Check("psf: кнопка 9 = Key13 = I", text.Contains("Key13Value=70070C"));
+        Check("psf: кнопка 13 = Key1 = ПКМ", text.Contains("Key1Value=100200"));
         Check("psf: 16 кнопок", Enumerable.Range(0, 16).All(i => text.Contains($"Key{i}Value=")));
+        Check("psf: ЛКМ сохранена", text.Contains("Key0Value=100100"));
+
+        var read = PsfReader.Read(temp);
+        Check("psf reader: файл прочитан", read is not null);
+        if (read is not null)
+        {
+            Check("psf reader: имя профиля", read.ProfileName == "MouseMackros", read.ProfileName);
+            Check("psf reader: кнопка 1", read.ForButton(1)?.Trigger == MouseButtonMap.TriggerFor(1),
+                read.ForButton(1)?.Trigger ?? "null");
+            Check("psf reader: кнопка 16", read.ForButton(16)?.Trigger == MouseButtonMap.TriggerFor(16),
+                read.ForButton(16)?.Trigger ?? "null");
+            Check("psf reader: ЛКМ", read.ForButton(12)?.Trigger == "mouse:Left",
+                read.ForButton(12)?.Trigger ?? "null");
+        }
+
         File.Delete(temp);
     }
+
+    var stock = PsfReader.Read(Path.Combine(vendorDir, "default0.psf"));
+    Check("psf reader: стоковый профиль прочитан", stock is not null && stock.Keys.Count >= 16,
+        stock?.Keys.Count.ToString() ?? "null");
+    Check("psf reader: стоковая ЛКМ", stock?.ForButton(12)?.Trigger == "mouse:Left",
+        stock?.ForButton(12)?.Trigger ?? "null");
 }
 
-// ---------------------------------------------------------------- config load
-var loaded = ConfigService.Load();
-Check("конфиг читается", loaded.Profiles.Count > 0, loaded.Profiles.Count.ToString());
-Check("горячая клавиша паузы", !string.IsNullOrWhiteSpace(loaded.ToggleHotkey), loaded.ToggleHotkey);
+// ---------------------------------------------------------------- profile storage
+var dataDir = Path.Combine(Path.GetTempPath(), "mm_selftest_" + Guid.NewGuid().ToString("n"));
+ProfileStore.UseDataDirectory(dataDir);
+
+var stored = Presets.CreateDefault();
+stored.Profiles[1].ApplicationPath = @"C:\Apps\browser.exe";
+stored.Profiles[1].VendorProfilePath = @"C:\psf\MouseMackros.psf";
+ProfileStore.Save(stored);
+
+Check("storage: settings.json создан", File.Exists(Path.Combine(dataDir, "settings.json")));
+Check("storage: профили в отдельных файлах",
+    Directory.GetFiles(Path.Combine(dataDir, "profiles"), "*.json").Length == 2);
+Check("storage: папка psf создаётся", Directory.CreateDirectory(ProfileStore.PsfDir).Exists);
+
+var reloaded = ProfileStore.Load();
+Check("storage: профили читаются", reloaded.Profiles.Count == 2, reloaded.Profiles.Count.ToString());
+Check("storage: путь приложения сохранён",
+    reloaded.Profiles.Any(p => p.ApplicationPath == @"C:\Apps\browser.exe"));
+Check("storage: путь .psf сохранён",
+    reloaded.Profiles.Any(p => p.VendorProfilePath == @"C:\psf\MouseMackros.psf"));
+Check("storage: fallback восстановлен", reloaded.FallbackProfile.IsFallback);
+
+// legacy config.json
+var legacyDir = Path.Combine(Path.GetTempPath(), "mm_selftest_legacy_" + Guid.NewGuid().ToString("n"));
+Directory.CreateDirectory(legacyDir);
+ProfileStore.UseDataDirectory(legacyDir);
+
+var legacy = Presets.CreateDefault();
+legacy.Profiles[0].Name = "Старый профиль";
+File.WriteAllText(Path.Combine(legacyDir, "config.json"),
+    JsonSerializer.Serialize(legacy, ProfileStore.JsonOptions), new UTF8Encoding(false));
+
+var migrated = ProfileStore.Load();
+Check("миграция: старый профиль переехал", migrated.Profiles.Count == 2, migrated.Profiles.Count.ToString());
+Check("миграция: имя сохранилось", migrated.Profiles.Any(p => p.Name == "Старый профиль"));
+Check("миграция: config.json заархивирован", File.Exists(Path.Combine(legacyDir, "config.json.migrated")));
+Check("миграция: новые файлы созданы", File.Exists(Path.Combine(legacyDir, "settings.json")));
+
+try
+{
+    Directory.Delete(dataDir, true);
+    Directory.Delete(legacyDir, true);
+}
+catch
+{
+    // temp folders are allowed to stay
+}
 
 Console.WriteLine();
 Console.WriteLine($"Итого: {passed} успешно, {failures} с ошибками");

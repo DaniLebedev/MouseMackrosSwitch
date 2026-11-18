@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MouseMackros.Engine;
@@ -40,6 +40,7 @@ public partial class App : Application
         RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
 
         SilentStart = e.Args.Any(a => a.Equals("--silent", StringComparison.OrdinalIgnoreCase));
+        ProfileStore.UseDataDirectory(FindDataDirectoryArgument(e.Args));
 
         _mutex = new Mutex(true, @"Local\MouseMackros_SingleInstance", out bool isFirst);
         if (!isFirst)
@@ -62,20 +63,20 @@ public partial class App : Application
 
         DispatcherUnhandledException += OnUnhandled;
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
-            ConfigService.Log("Фатальная ошибка: " + args.ExceptionObject);
+            ProfileStore.Log("Фатальная ошибка: " + args.ExceptionObject);
 
-        Config = ConfigService.Load();
+        Config = ProfileStore.Load();
 
         try
         {
             Engine = new ProfileEngine(Config);
             Engine.Start();
             Engine.Notice += OnEngineNotice;
-            Engine.Error += (_, message) => ConfigService.Log("Ошибка действия: " + message);
+            Engine.Error += (_, message) => ProfileStore.Log("Ошибка действия: " + message);
         }
         catch (Exception ex)
         {
-            ConfigService.Log("Не удалось запустить движок: " + ex);
+            ProfileStore.Log("Не удалось запустить движок: " + ex);
             AppDialog.ShowError("Не удалось установить глобальные хуки ввода.\n\n" + ex.Message,
                 "MouseMackros");
             Shutdown();
@@ -142,9 +143,21 @@ public partial class App : Application
 
     private void OnUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        ConfigService.Log("Необработанная ошибка: " + e.Exception);
+        ProfileStore.Log("Необработанная ошибка: " + e.Exception);
         e.Handled = true;
         AppDialog.ShowError(e.Exception.Message, "Что-то пошло не так");
+    }
+
+    private static string? FindDataDirectoryArgument(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i].StartsWith("--data-dir=", StringComparison.OrdinalIgnoreCase))
+                return args[i]["--data-dir=".Length..];
+            if (args[i].Equals("--data-dir", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                return args[i + 1];
+        }
+        return null;
     }
 
     public void ShowMainWindow()
@@ -164,13 +177,13 @@ public partial class App : Application
     {
         Config = config;
         Engine.ApplyConfig(config);
-        ConfigService.Save(config);
+        ProfileStore.Save(config);
         _main?.ReloadFromConfig();
     }
 
     public void SaveConfig()
     {
-        ConfigService.Save(Config);
+        ProfileStore.Save(Config);
     }
 
     public void ExitApp()
@@ -179,7 +192,7 @@ public partial class App : Application
         Engine?.Dispose();
         _tray?.Dispose();
         _activation?.Dispose();
-        ConfigService.Save(Config);
+        ProfileStore.Save(Config);
         Shutdown();
     }
 

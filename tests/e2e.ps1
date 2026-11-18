@@ -1,7 +1,7 @@
 ﻿# End-to-end test for MouseMackros.
-# Replaces the live config with a tiny test profile, starts the app, emulates a
-# Ctrl+Alt+F12 combo and an X1 side-button click, then checks that both bound
-# actions actually ran. The original config is restored afterwards.
+# Runs the app against a throw-away data folder (--data-dir), emulates a
+# Ctrl+Alt+Shift+F12 combo and an X1 side-button click, then checks that both
+# bound actions actually ran. Live profiles in %APPDATA% are never touched.
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File tests\e2e.ps1
 
@@ -9,9 +9,7 @@ $ErrorActionPreference = 'Stop'
 
 $root    = Split-Path -Parent $PSScriptRoot
 $exe     = Join-Path $root 'src\MouseMackros\bin\Debug\net10.0-windows\MouseMackros.exe'
-$appData = Join-Path $env:APPDATA 'MouseMackros'
-$config  = Join-Path $appData 'config.json'
-$backup  = Join-Path $env:TEMP 'mm_config_e2e_backup.json'
+$dataDir = Join-Path $env:TEMP 'mm_e2e_data'
 $keyMarker   = Join-Path $env:TEMP 'mm_e2e_key.txt'
 $mouseMarker = Join-Path $env:TEMP 'mm_e2e_mouse.txt'
 
@@ -45,55 +43,59 @@ public static class E2EInput
 Get-Process MouseMackros -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 500
 
-$hadConfig = Test-Path $config
-if ($hadConfig) { Copy-Item $config $backup -Force }
-
+Remove-Item $dataDir -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $keyMarker, $mouseMarker -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'profiles') | Out-Null
 
-$json = @'
+$settings = @'
 {
-  "Version": 1,
+  "Version": 2,
   "Enabled": true,
   "ShowToast": false,
   "StartWithWindows": false,
   "ToggleHotkey": "Ctrl+Alt+P",
-  "DefaultProfileId": "default",
-  "Profiles": [
+  "DefaultProfileId": "default"
+}
+'@
+
+$profile = @'
+{
+  "Id": "default",
+  "Name": "E2E",
+  "Accent": "#4C9AFF",
+  "IsFallback": true,
+  "Match": { "Processes": [], "Priority": 0 },
+  "Bindings": [
     {
-      "Id": "default",
-      "Name": "E2E",
-      "Accent": "#4C9AFF",
-      "IsFallback": true,
-      "Bindings": [
-        {
-          "Trigger": "key:Ctrl+Alt+Shift+F12",
-          "Label": "key test",
-          "Enabled": true,
-          "Action": {
-            "Kind": "Run",
-            "Value": "cmd.exe",
-            "Arguments": "/c echo keyok> \"__KEY__\""
-          }
-        },
-        {
-          "Trigger": "mouse:X1",
-          "Label": "mouse test",
-          "Enabled": true,
-          "Action": {
-            "Kind": "Run",
-            "Value": "cmd.exe",
-            "Arguments": "/c echo mouseok> \"__MOUSE__\""
-          }
-        }
-      ]
+      "Button": 0,
+      "Trigger": "key:Ctrl+Alt+Shift+F12",
+      "Label": "key test",
+      "Enabled": true,
+      "Action": {
+        "Kind": "Run",
+        "Value": "cmd.exe",
+        "Arguments": "/c echo keyok> \"__KEY__\""
+      }
+    },
+    {
+      "Button": 0,
+      "Trigger": "mouse:X1",
+      "Label": "mouse test",
+      "Enabled": true,
+      "Action": {
+        "Kind": "Run",
+        "Value": "cmd.exe",
+        "Arguments": "/c echo mouseok> \"__MOUSE__\""
+      }
     }
   ]
 }
 '@
 
-$json = $json.Replace('__KEY__', $keyMarker.Replace('\', '\\')).Replace('__MOUSE__', $mouseMarker.Replace('\', '\\'))
-New-Item -ItemType Directory -Force -Path $appData | Out-Null
-[IO.File]::WriteAllText($config, $json, (New-Object Text.UTF8Encoding($false)))
+$profile = $profile.Replace('__KEY__', $keyMarker.Replace('\', '\\')).Replace('__MOUSE__', $mouseMarker.Replace('\', '\\'))
+$utf8 = New-Object Text.UTF8Encoding($false)
+[IO.File]::WriteAllText((Join-Path $dataDir 'settings.json'), $settings, $utf8)
+[IO.File]::WriteAllText((Join-Path $dataDir 'profiles\default.json'), $profile, $utf8)
 
 function Send-Combo {
     [E2EInput]::Key(0x11, $true)   # Ctrl
@@ -112,8 +114,8 @@ function Send-Combo {
 }
 
 try {
-    Write-Host 'Запуск MouseMackros --silent ...'
-    Start-Process -FilePath $exe -ArgumentList '--silent'
+    Write-Host "Запуск MouseMackros --silent --data-dir `"$dataDir`" ..."
+    Start-Process -FilePath $exe -ArgumentList @('--silent', '--data-dir', $dataDir)
     Start-Sleep -Seconds 3
 
     $proc = Get-Process MouseMackros -ErrorAction SilentlyContinue
@@ -146,9 +148,7 @@ finally {
     Get-Process MouseMackros -ErrorAction SilentlyContinue | Stop-Process -Force
     Start-Sleep -Milliseconds 500
 
-    if ($hadConfig) { Copy-Item $backup $config -Force; Remove-Item $backup -Force }
-    else { Remove-Item $config -Force -ErrorAction SilentlyContinue }
-
     Remove-Item $keyMarker, $mouseMarker -Force -ErrorAction SilentlyContinue
-    Write-Host 'Исходный конфиг восстановлен.'
+    Remove-Item $dataDir -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host 'Временные данные e2e удалены.'
 }

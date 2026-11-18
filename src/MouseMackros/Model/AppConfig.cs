@@ -1,5 +1,7 @@
 namespace MouseMackros.Model;
 
+using System.Text.Json.Serialization;
+
 /// <summary>What a bound button should do.</summary>
 public enum ActionKind
 {
@@ -63,6 +65,12 @@ public sealed class ActionSpec
 
 public sealed class Binding
 {
+    /// <summary>
+    /// MBF1000PRO button number (1..16) this binding belongs to, or 0 for a
+    /// keyboard / wheel / extra trigger that has no physical button.
+    /// </summary>
+    public int Button { get; set; }
+
     /// <summary>Serialized trigger, see <see cref="Input.Trigger.ToString"/>.</summary>
     public string Trigger { get; set; } = "";
 
@@ -90,6 +98,7 @@ public sealed class MatchRules
 
     public int Priority { get; set; }
 
+    [JsonIgnore]
     public bool HasRules =>
         Processes.Count > 0 || !string.IsNullOrWhiteSpace(TitleContains) || !string.IsNullOrWhiteSpace(WindowClass);
 }
@@ -99,14 +108,35 @@ public sealed class Profile
     public string Id { get; set; } = Guid.NewGuid().ToString("n");
     public string Name { get; set; } = "Новый профиль";
     public string Accent { get; set; } = "#4C9AFF";
+
+    /// <summary>Full path to the .exe this profile is attached to, when picked in the UI.</summary>
+    public string? ApplicationPath { get; set; }
+
+    /// <summary>Optional .psf file with the mouse layout this profile expects.</summary>
+    public string? VendorProfilePath { get; set; }
+
     public MatchRules Match { get; set; } = new();
     public List<Binding> Bindings { get; set; } = new();
 
     public bool IsFallback { get; set; }
 
+    /// <summary>Short application name for the UI, e.g. "chrome" or "без приложения".</summary>
+    [JsonIgnore]
+    public string ApplicationName
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(ApplicationPath))
+                return Path.GetFileNameWithoutExtension(ApplicationPath);
+            return Match.Processes.FirstOrDefault() ?? "без приложения";
+        }
+    }
+
     public Binding? Find(string triggerKey) =>
         Bindings.FirstOrDefault(b => b.Enabled &&
                                      string.Equals(b.Trigger, triggerKey, StringComparison.OrdinalIgnoreCase));
+
+    public Binding? FindButton(int button) => Bindings.FirstOrDefault(b => b.Button == button);
 
     public Profile Clone() => new()
     {
@@ -114,6 +144,8 @@ public sealed class Profile
         Name = Name,
         Accent = Accent,
         IsFallback = false,
+        ApplicationPath = ApplicationPath,
+        VendorProfilePath = VendorProfilePath,
         Match = new MatchRules
         {
             Processes = Match.Processes.ToList(),
@@ -123,6 +155,7 @@ public sealed class Profile
         },
         Bindings = Bindings.Select(b => new Binding
         {
+            Button = b.Button,
             Trigger = b.Trigger,
             Label = b.Label,
             Enabled = b.Enabled,

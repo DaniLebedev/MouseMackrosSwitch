@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="MouseMackros" Width="1100" Height="720" MinWidth="980" MinHeight="600"
+        Title="MouseMackros" Width="1160" Height="760" MinWidth="1000" MinHeight="640"
         WindowStyle="None" Background="{StaticResource BgBrush}" ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen" UseLayoutRounding="True" SnapsToDevicePixels="True"
         FontFamily="{StaticResource UiFont}">
@@ -12,34 +12,107 @@
                             CornerRadius="0" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
 
+    <Window.Resources>
+        <Style x:Key="Chip" TargetType="Border">
+            <Setter Property="Background" Value="#1E232C" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="ChipText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="MenuBarButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#C3CAD8" />
+        </Style>
+
+        <!-- ================= file menu ================= -->
+        <ContextMenu x:Key="FileMenu">
+            <MenuItem Header="Новый профиль" InputGestureText="Ctrl+N" Click="NewProfile_Click" />
+            <MenuItem Header="Открыть профиль из файла…" Click="ImportProfile_Click" />
+            <MenuItem Header="Сохранить профиль в файл…" Click="ExportProfile_Click" />
+            <Separator />
+            <MenuItem Header="Создать профиль для мыши (.psf)…" Click="GeneratePsf_Click" />
+            <MenuItem Header="Загрузить раскладку .psf…" Click="LoadPsf_Click" />
+            <MenuItem Header="Папка с профилями" Click="DataFolder_Click" />
+            <Separator />
+            <MenuItem Header="Настройки…" Click="Settings_Click" />
+            <Separator />
+            <MenuItem Header="Выход" Click="Exit_Click" />
+        </ContextMenu>
+
+        <!-- ================= profile menu ================= -->
+        <ContextMenu x:Key="ProfileMenu">
+            <MenuItem Header="Выбрать приложение…" Click="ChooseApp_Click" />
+            <MenuItem Header="Правила срабатывания…" Click="Rules_Click" />
+            <Separator />
+            <MenuItem Header="Сделать основным" Click="MakeDefault_Click" />
+            <MenuItem Header="Удалить профиль" Click="DeleteProfile_Click" />
+        </ContextMenu>
+
+        <!-- ================= edit menu ================= -->
+        <ContextMenu x:Key="EditMenu">
+            <MenuItem Header="Назначить кнопку…" Click="CaptureBinding_Click" />
+            <Separator />
+            <MenuItem Header="Показывать все кнопки" IsCheckable="True"
+                      Click="ShowAll_Click" />
+            <Separator />
+            <MenuItem Header="Диагностика ввода…" Click="Diagnostics_Click" />
+        </ContextMenu>
+
+        <!-- ================= help menu ================= -->
+        <ContextMenu x:Key="HelpMenu">
+            <MenuItem Header="Диагностика ввода…" Click="Diagnostics_Click" />
+            <MenuItem Header="О программе" Click="About_Click" />
+        </ContextMenu>
+    </Window.Resources>
+
     <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Background="{StaticResource BgBrush}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="46" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="30" />
+                <RowDefinition Height="28" />
             </Grid.RowDefinitions>
 
-            <!-- ================= header ================= -->
+            <!-- ================= title + menu bar ================= -->
             <Grid Grid.Row="0" Background="#16191F">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Margin="16,0,14,0" VerticalAlignment="Center">
                     <Border Width="22" Height="22" CornerRadius="6" Background="{StaticResource AccentBrush}">
                         <TextBlock Text="M" FontWeight="Bold" FontSize="13" Foreground="#0E1626"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Text="MouseMackros" FontSize="14" FontWeight="SemiBold" Margin="10,0,0,0"
                                VerticalAlignment="Center" />
-                    <TextBlock Text="контекстные раскладки мыши" Style="{StaticResource MutedText}"
-                               Margin="10,2,0,0" VerticalAlignment="Center" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="FileMenuButton" Style="{StaticResource MenuBarButton}" Content="Файл"
+                            Click="FileMenuButton_Click" />
+                    <Button x:Name="ProfileMenuButton" Style="{StaticResource MenuBarButton}" Content="Профиль"
+                            Click="ProfileMenuButton_Click" />
+                    <Button x:Name="EditMenuButton" Style="{StaticResource MenuBarButton}" Content="Изменить"
+                            Click="EditMenuButton_Click" />
+                    <Button x:Name="HelpMenuButton" Style="{StaticResource MenuBarButton}" Content="Справка"
+                            Click="HelpMenuButton_Click" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button x:Name="PauseButton" Style="{StaticResource FlatButton}" Click="PauseButton_Click"
                             ToolTip="Ctrl+Alt+P" Margin="0,0,8,0">
@@ -59,29 +132,27 @@
             <!-- ================= body ================= -->
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="266" />
+                    <ColumnDefinition Width="304" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- sidebar -->
-                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,1,0" Background="#16191F">
-                    <Grid Margin="12,14,12,10">
+                <!-- profiles panel -->
+                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,1,0" Background="#15181E">
+                    <Grid Margin="12,14,12,12">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="2,0,0,6">
-                            <TextBlock Text="ПРОФИЛИ" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,0">
-                                <Button x:Name="AddProfileButton" Style="{StaticResource IconButton}" Content="＋"
-                                        Click="AddProfileButton_Click" ToolTip="Новый профиль" />
-                                <Button x:Name="ImportButton" Style="{StaticResource IconButton}" Content="⭳"
-                                        Click="ImportButton_Click" ToolTip="Импорт профилей из файла" />
-                                <Button x:Name="ExportButton" Style="{StaticResource IconButton}" Content="⭱"
-                                        Click="ExportButton_Click" ToolTip="Экспорт профилей в файл" />
+                        <Grid Grid.Row="0" Margin="4,0,0,8">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="ПРОФИЛИ" Style="{StaticResource SectionTitle}" Margin="0" />
+                                <TextBlock x:Name="ProfileCountText" Style="{StaticResource MutedText}"
+                                           FontSize="11" Margin="8,0,0,1" VerticalAlignment="Center" />
                             </StackPanel>
+                            <Button Style="{StaticResource IconButton}" Content="＋" HorizontalAlignment="Right"
+                                    Margin="0,-4,0,0" Click="NewProfile_Click" ToolTip="Новый профиль (Ctrl+N)" />
                         </Grid>
 
                         <ListBox x:Name="ProfileList" Grid.Row="1" SelectionChanged="ProfileList_SelectionChanged">
@@ -89,198 +160,273 @@
                                 <DataTemplate>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="4" />
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <Border Width="3" CornerRadius="2" Background="{Binding Accent}" Margin="0,1" />
-                                        <StackPanel Grid.Column="1" Margin="9,0,6,0">
+
+                                        <Grid Width="34" Height="34" Margin="0,0,10,0">
+                                            <Border CornerRadius="8" Background="{Binding Accent}" Opacity="0.9">
+                                                <TextBlock Text="{Binding Initial}" FontWeight="Bold" FontSize="14"
+                                                           Foreground="#0E1626" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                            <Image Source="{Binding Icon}" Width="24" Height="24" />
+                                        </Grid>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Subtitle}" Style="{StaticResource MutedText}"
                                                        FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                                         </StackPanel>
-                                        <TextBlock Grid.Column="2" Text="{Binding ActiveMark}"
-                                                   Foreground="{StaticResource SuccessBrush}" FontSize="9"
-                                                   VerticalAlignment="Center" />
+
+                                        <Ellipse Grid.Column="2" Width="7" Height="7" Fill="{StaticResource SuccessBrush}"
+                                                 VerticalAlignment="Center" Margin="6,0,2,0"
+                                                 Visibility="{Binding ActiveVisibility}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
 
-                        <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                        <StackPanel Grid.Row="2" Margin="4,10,4,0">
                             <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,0,0,10" />
-                            <TextBlock Text="НАСТРОЙКИ" Style="{StaticResource SectionTitle}" Margin="2,0,0,6" />
-                            <CheckBox x:Name="EnabledCheck" Content="Макросы включены" Margin="2,4"
-                                      Click="EnabledCheck_Click" />
-                            <CheckBox x:Name="ToastCheck" Content="Уведомления" Margin="2,4"
-                                      Click="ToastCheck_Click" />
-                            <CheckBox x:Name="AutostartCheck" Content="Запускать с Windows" Margin="2,4"
-                                      Click="AutostartCheck_Click" />
-                            <Grid Margin="2,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="112" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Пауза" VerticalAlignment="Center" />
-                                <TextBox x:Name="HotkeyBox" Grid.Column="1" IsReadOnly="True" FontSize="11.5"
-                                         Padding="6,6" PreviewKeyDown="HotkeyBox_PreviewKeyDown" ToolTip="Нажмите новое сочетание" />
-                            </Grid>
-                            <Button x:Name="PsfButton" Style="{StaticResource FlatButton}" Margin="0,10,0,0"
-                                    Click="PsfButton_Click" HorizontalContentAlignment="Left"
-                                    Content="Профиль для MBF1000PRO…" />
-                            <Button x:Name="DataFolderButton" Style="{StaticResource FlatButton}" Margin="0,6,0,0"
-                                    Click="DataFolderButton_Click" HorizontalContentAlignment="Left"
-                                    Content="Папка с настройками" />
+                            <TextBlock Text="Профиль включается автоматически, когда активно окно его приложения."
+                                       Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap"
+                                       Margin="0,0,0,10" />
+                            <Button Style="{StaticResource GhostButton}" Content="Настройки…"
+                                    HorizontalContentAlignment="Left" Padding="6,4" Click="Settings_Click" />
+                            <Button Style="{StaticResource GhostButton}" Content="Папка с профилями"
+                                    HorizontalContentAlignment="Left" Padding="6,4" Click="DataFolder_Click" />
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <!-- editor -->
-                <Grid Grid.Column="1" Margin="20,16,20,10">
+                <!-- profile content -->
+                <Grid Grid.Column="1" Margin="22,18,22,10">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="ПРОФИЛЬ" Style="{StaticResource SectionTitle}" />
-                            <TextBox x:Name="ProfileNameBox" FontSize="16" FontWeight="SemiBold" Width="340"
-                                     HorizontalAlignment="Left" TextChanged="ProfileNameBox_TextChanged" />
-                            <TextBlock x:Name="ProfileHint" Style="{StaticResource MutedText}" Margin="2,7,0,0"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                            <Button x:Name="MakeDefaultButton" Style="{StaticResource FlatButton}"
-                                    Click="MakeDefaultButton_Click" Content="Сделать основным" />
-                            <Button x:Name="DeleteProfileButton" Style="{StaticResource FlatButton}"
-                                    Click="DeleteProfileButton_Click" Content="Удалить" Margin="8,0,0,0" />
-                        </StackPanel>
-                    </Grid>
+                    <!-- header card -->
+                    <Border Grid.Row="0" Background="{StaticResource PanelBrush}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12"
+                            Padding="18,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                    <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1" CornerRadius="9" Padding="14,12" Margin="0,14,0,14">
-                        <StackPanel>
-                            <TextBlock Text="КОГДА ВКЛЮЧАТЬ" Style="{StaticResource SectionTitle}" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="Программы (через запятую, * — шаблон)" Style="{StaticResource MutedText}" />
-                                    <TextBox x:Name="ProcessesBox" Margin="0,5,0,0" TextChanged="Rules_Changed" />
-                                </StackPanel>
-                                <Button Grid.Column="1" x:Name="AddActiveWindowButton" Style="{StaticResource FlatButton}"
-                                        Content="+ активное окно" VerticalAlignment="Bottom" Margin="10,0,0,0"
-                                        Click="AddActiveWindowButton_Click"
-                                        ToolTip="Добавить программу, в которой сейчас активно окно" />
+                            <Grid Width="56" Height="56" VerticalAlignment="Top">
+                                <Border CornerRadius="12" Background="#232935" BorderBrush="#313846"
+                                        BorderThickness="1">
+                                    <TextBlock x:Name="HeaderInitial" FontSize="22" FontWeight="Bold"
+                                               Foreground="{StaticResource AccentBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Image x:Name="HeaderIcon" Width="38" Height="38" />
                             </Grid>
-                            <Grid Margin="0,10,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="90" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="Заголовок содержит" Style="{StaticResource MutedText}" />
-                                    <TextBox x:Name="TitleBox" Margin="0,5,0,0" TextChanged="Rules_Changed" />
+
+                            <StackPanel Grid.Column="1" Margin="14,0,18,0" VerticalAlignment="Center">
+                                <TextBox x:Name="ProfileNameBox" Style="{StaticResource InlineTextBox}"
+                                         TextChanged="ProfileNameBox_TextChanged" ToolTip="Имя профиля" />
+                                <StackPanel Orientation="Horizontal" Margin="2,4,0,0">
+                                    <TextBlock x:Name="AppNameText" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="#B9C2D2" />
+                                    <TextBlock Text="·" Style="{StaticResource MutedText}" Margin="7,0" />
+                                    <TextBlock x:Name="AppPathText" Style="{StaticResource MutedText}" FontSize="11.5"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="520" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Класс окна" Style="{StaticResource MutedText}" />
-                                    <TextBox x:Name="ClassBox" Margin="0,5,0,0" TextChanged="Rules_Changed" />
+                                <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                                    <Border Style="{StaticResource Chip}">
+                                        <TextBlock x:Name="RulesChipText" Style="{StaticResource ChipText}" />
+                                    </Border>
+                                    <Border Style="{StaticResource Chip}">
+                                        <TextBlock x:Name="PsfChipText" Style="{StaticResource ChipText}" />
+                                    </Border>
+                                    <Border x:Name="FallbackChip" Style="{StaticResource Chip}">
+                                        <TextBlock Text="основной профиль" Style="{StaticResource ChipText}"
+                                                   Foreground="#7FB2FF" />
+                                    </Border>
                                 </StackPanel>
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock Text="Приоритет" Style="{StaticResource MutedText}" />
-                                    <TextBox x:Name="PriorityBox" Margin="0,5,0,0" TextChanged="Rules_Changed" />
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                <Button Style="{StaticResource FlatButton}" Content="Выбрать приложение…"
+                                        Click="ChooseApp_Click" />
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Style="{StaticResource GhostButton}" Content="Правила…"
+                                            Click="Rules_Click" Padding="8,5" ToolTip="Заголовок, класс, приоритет" />
+                                    <Button Grid.Column="2" Style="{StaticResource GhostButton}" Content="Раскладка .psf…"
+                                            Click="LoadPsf_Click" Padding="8,5"
+                                            ToolTip="Указать фирменный .psf, из которого взяты триггеры" />
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
                     </Border>
 
-                    <Grid Grid.Row="2">
+                    <!-- buttons -->
+                    <Grid Grid.Row="1" Margin="0,18,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Grid Grid.Row="0" Margin="0,0,0,6">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="КНОПКИ И ДЕЙСТВИЯ" Style="{StaticResource SectionTitle}"
-                                           VerticalAlignment="Center" Margin="2,0,0,0" />
-                                <TextBlock x:Name="BindingCount" Style="{StaticResource MutedText}" Margin="8,1,0,0"
-                                           VerticalAlignment="Center" />
+
+                        <Grid Grid.Row="0" Margin="2,0,2,8">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="КНОПКИ" Style="{StaticResource SectionTitle}" Margin="0" />
+                                <TextBlock x:Name="BindingCountText" Style="{StaticResource MutedText}"
+                                           FontSize="11" Margin="8,0,0,1" VerticalAlignment="Center" />
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-6,0,0">
-                                <Button x:Name="AddBindingButton" Style="{StaticResource AccentButton}"
-                                        Content="+ Нажать кнопку…" Click="AddBindingButton_Click"
-                                        ToolTip="Нажмите кнопку мыши или сочетание клавиш, чтобы создать действие" />
-                                <Button Style="{StaticResource FlatButton}" Content="Захват ввода"
-                                        Click="DiagnosticsButton_Click" Margin="8,0,0,0"
-                                        ToolTip="Показывает, что именно присылает мышь" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <ToggleButton x:Name="ShowAllToggle" Style="{StaticResource ChipToggle}"
+                                              Content="Все кнопки" Click="ShowAllToggle_Click"
+                                              ToolTip="Показывать кнопки без действия" Margin="0,0,8,0" />
+                                <Button Style="{StaticResource AccentButton}" Content="+ Назначить кнопку"
+                                        Click="CaptureBinding_Click"
+                                        ToolTip="Нажмите кнопку мыши, чтобы назначить действие" />
                             </StackPanel>
                         </Grid>
 
-                        <DataGrid x:Name="BindingsGrid" Grid.Row="1" Background="{StaticResource PanelBrush}"
-                                  RowHeight="46">
-                            <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="КНОПКА" Width="240">
-                                    <DataGridTemplateColumn.CellTemplate>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="0,0,4,0">
+                                <ItemsControl x:Name="ButtonsList">
+                                    <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding TriggerDisplay}" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Label}" Style="{StaticResource MutedText}"
-                                                           FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                                            </StackPanel>
+                                            <Border Background="{StaticResource PanelBrush}"
+                                                    BorderBrush="{StaticResource BorderBrush}"
+                                                    BorderThickness="1" CornerRadius="10" Padding="12,10"
+                                                    Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="1.05*" />
+                                                        <ColumnDefinition Width="1.35*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Border Width="34" Height="34" CornerRadius="8"
+                                                            Background="{Binding AccentBackground}"
+                                                            VerticalAlignment="Center" Margin="0,0,12,0">
+                                                        <TextBlock Text="{Binding NumberText}" FontWeight="Bold"
+                                                                   FontSize="13" Foreground="{Binding Accent}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding TriggerText}"
+                                                                   Style="{StaticResource MutedText}" FontSize="11"
+                                                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center"
+                                                                Margin="8,0,10,0">
+                                                        <TextBlock Text="{Binding ActionSummary}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding ActionDetail}"
+                                                                   Style="{StaticResource MutedText}" FontSize="11"
+                                                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                                VerticalAlignment="Center">
+                                                        <Button Style="{StaticResource GhostButton}" Content="Тест"
+                                                                Padding="8,4" Click="TestBinding_Click"
+                                                                Visibility="{Binding AssignedVisibility}" />
+                                                        <Button Style="{StaticResource FlatButton}" Content="Изменить"
+                                                                Padding="10,4" Margin="4,0,0,0"
+                                                                Click="EditButton_Click" />
+                                                        <Button Style="{StaticResource GhostButton}" Content="✕"
+                                                                Padding="8,4" Margin="2,0,0,0"
+                                                                Click="RemoveButton_Click" ToolTip="Убрать действие"
+                                                                Visibility="{Binding AssignedVisibility}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
                                         </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="ДЕЙСТВИЕ" Width="*">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding ActionSummary}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding ActionDetail}" Style="{StaticResource MutedText}"
-                                                           FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="" Width="196">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                                        HorizontalAlignment="Right">
-                                                <Button Style="{StaticResource FlatButton}" Content="Изменить"
-                                                        Padding="10,4" Click="EditBinding_Click" />
-                                                <Button Style="{StaticResource GhostButton}" Content="Тест"
-                                                        Padding="8,4" Margin="4,0,0,0" Click="TestBinding_Click" />
-                                                <Button Style="{StaticResource GhostButton}" Content="✕"
-                                                        Padding="8,4" Margin="2,0,0,0" Click="DeleteBinding_Click"
-                                                        ToolTip="Удалить" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <Border x:Name="EmptyState" Background="#171B21" BorderBrush="{StaticResource BorderBrush}"
+                                        BorderThickness="1" CornerRadius="12" Padding="26,30" Margin="0,4,0,0"
+                                        Visibility="Collapsed">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <TextBlock Text="Пока ни одна кнопка не назначена" FontSize="14"
+                                                   FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Нажмите «Назначить кнопку» и нажмите нужную кнопку мыши."
+                                                   Style="{StaticResource MutedText}" Margin="0,7,0,0"
+                                                   HorizontalAlignment="Center" />
+                                        <Button Style="{StaticResource AccentButton}" Content="Назначить кнопку"
+                                                Margin="0,16,0,0" HorizontalAlignment="Center"
+                                                Click="CaptureBinding_Click" />
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel x:Name="OtherSection" Margin="0,18,2,0" Visibility="Collapsed">
+                                    <TextBlock Text="ДРУГИЕ ПРИВЯЗКИ" Style="{StaticResource SectionTitle}" />
+                                    <ItemsControl x:Name="OtherList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#171B21" BorderBrush="{StaticResource BorderBrush}"
+                                                        BorderThickness="1" CornerRadius="8" Padding="12,8"
+                                                        Margin="0,0,0,5">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="1*" />
+                                                            <ColumnDefinition Width="1.4*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding TriggerText}"
+                                                                       Style="{StaticResource MutedText}" FontSize="11"
+                                                                       Margin="0,2,0,0" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                                    Margin="8,0,10,0">
+                                                            <TextBlock Text="{Binding ActionSummary}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding ActionDetail}"
+                                                                       Style="{StaticResource MutedText}" FontSize="11"
+                                                                       Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                                    VerticalAlignment="Center">
+                                                            <Button Style="{StaticResource FlatButton}" Content="Изменить"
+                                                                    Padding="10,4" Click="EditButton_Click" />
+                                                            <Button Style="{StaticResource GhostButton}" Content="✕"
+                                                                    Padding="8,4" Margin="2,0,0,0"
+                                                                    Click="RemoveButton_Click" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
                     </Grid>
                 </Grid>
             </Grid>
 
-            <!-- ================= footer ================= -->
+            <!-- ================= status bar ================= -->
             <Border Grid.Row="2" Background="#16191F" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
                 <Grid Margin="16,0">
                     <TextBlock x:Name="LastInputText" Style="{StaticResource MutedText}" VerticalAlignment="Center"
-                               Text="Готово" />
+                               FontSize="11" Text="Готово" />
                     <TextBlock x:Name="ActiveWindowText" Style="{StaticResource MutedText}" VerticalAlignment="Center"
                                HorizontalAlignment="Right" FontSize="11" />
                 </Grid>

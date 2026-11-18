@@ -23,7 +23,7 @@
 
             <TextBlock x:Name="HintText" Style="{StaticResource MutedText}" Margin="0,14,0,0"
                        TextWrapping="Wrap"
-                       Text="Совет: дополнительные кнопки мыши должны быть настроены в MBF1000PRO на сочетания Ctrl+Alt+Shift+A…M. Кнопку «Профиль для MBF1000PRO…» можно создать в главном окне." />
+                       Text="Совет: боковые кнопки мыши должны быть настроены в MBF1000PRO на сочетания Ctrl+Alt+Shift+A…M. Готовый файл создаётся в меню «Файл → Создать профиль для мыши (.psf)…»." />
 
             <Button Content="Отмена" Style="{StaticResource FlatButton}" HorizontalAlignment="Right"
                     Margin="0,18,0,0" Click="Cancel_Click" />

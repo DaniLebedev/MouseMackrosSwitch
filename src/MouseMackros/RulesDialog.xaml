@@ -1,0 +1,72 @@
+<Window x:Class="MouseMackros.RulesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Правила профиля" Width="540" Height="470" WindowStyle="None" ResizeMode="NoResize"
+        Background="{StaticResource BgBrush}" WindowStartupLocation="CenterOwner"
+        UseLayoutRounding="True" SnapsToDevicePixels="True" FontFamily="{StaticResource UiFont}"
+        ShowInTaskbar="False">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="44" ResizeBorderThickness="0" GlassFrameThickness="0"
+                            CornerRadius="0" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Background="{StaticResource BgBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Background="#16191F">
+                <TextBlock Text="Правила срабатывания" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Margin="16,0,0,0" />
+                <Button Style="{StaticResource IconButton}" Content="✕" HorizontalAlignment="Right"
+                        Margin="0,0,8,0" Click="Cancel_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True" />
+            </Grid>
+
+            <StackPanel Grid.Row="1" Margin="20,16,20,8">
+                <TextBlock Text="ПРОГРАММЫ" Style="{StaticResource SectionTitle}" />
+                <TextBox x:Name="ProcessesBox" ToolTip="Имена процессов через запятую, * — шаблон" />
+                <TextBlock Text="Имена процессов без .exe, через запятую. Шаблоны: chrom*, *game*."
+                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap" />
+
+                <Grid Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="110" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="ЗАГОЛОВОК СОДЕРЖИТ" Style="{StaticResource SectionTitle}" />
+                        <TextBox x:Name="TitleBox" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="ПРИОРИТЕТ" Style="{StaticResource SectionTitle}" />
+                        <TextBox x:Name="PriorityBox" />
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="КЛАСС ОКНА" Style="{StaticResource SectionTitle}" Margin="0,16,0,8" />
+                <TextBox x:Name="ClassBox" />
+
+                <TextBlock Text="Если задано несколько условий, профиль включается только при совпадении всех."
+                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="При совпадении нескольких профилей побеждает профиль с большим приоритетом."
+                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Grid.Row="2" Background="#16191F" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0" Padding="16,12">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource FlatButton}" Content="Отмена" Click="Cancel_Click" />
+                    <Button Style="{StaticResource AccentButton}" Content="Сохранить" Margin="8,0,0,0"
+                            Click="Save_Click" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

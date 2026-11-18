@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -17,19 +18,27 @@ namespace MouseMackros;
 
 public partial class MainWindow : Window
 {
+    private static readonly string[] AccentPalette =
+    {
+        "#4C9AFF", "#9B6BF2", "#3FB950", "#F0645A", "#F2A33C", "#39B7C4", "#E06BB4"
+    };
+
     private readonly App _app;
     private readonly DispatcherTimer _saveTimer;
     private readonly ObservableCollection<ProfileRow> _profileRows = new();
+    private readonly ObservableCollection<ButtonRow> _buttonRows = new();
+    private readonly ObservableCollection<ButtonRow> _otherRows = new();
 
     private Profile? _selected;
     private bool _suppress;
+    private bool _showAllButtons;
 
     public MainWindow(App app)
     {
         InitializeComponent();
         _app = app;
 
-        _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _saveTimer.Tick += (_, _) =>
         {
             _saveTimer.Stop();
@@ -37,9 +46,13 @@ public partial class MainWindow : Window
         };
 
         ProfileList.ItemsSource = _profileRows;
+        ButtonsList.ItemsSource = _buttonRows;
+        OtherList.ItemsSource = _otherRows;
 
         _app.Engine.ActiveProfileChanged += OnEngineProfileChanged;
         _app.Engine.InputObserved += OnInputObserved;
+
+        PreviewKeyDown += MainWindow_PreviewKeyDown;
 
         ReloadFromConfig();
         UpdateStatus();
@@ -53,14 +66,8 @@ public partial class MainWindow : Window
         _suppress = true;
         try
         {
-            var config = _app.Config;
-            EnabledCheck.IsChecked = config.Enabled;
-            ToastCheck.IsChecked = config.ShowToast;
-            AutostartCheck.IsChecked = StartupService.IsEnabled();
-            HotkeyBox.Text = config.ToggleHotkey;
-
-            if (_selected is null || config.Profiles.All(p => p.Id != _selected.Id))
-                _selected = config.FallbackProfile;
+            if (_selected is null || _app.Config.Profiles.All(p => p.Id != _selected.Id))
+                _selected = _app.Config.FallbackProfile;
 
             RefreshProfileList();
         }
@@ -69,28 +76,35 @@ public partial class MainWindow : Window
             _suppress = false;
         }
 
-        RefreshEditor();
+        RefreshContent();
         UpdateStatus();
     }
 
     private void RefreshProfileList()
     {
+        var selectedId = _selected?.Id;
+
         _suppress = true;
         try
         {
-            var selectedId = _selected?.Id;
             _profileRows.Clear();
             foreach (var profile in _app.Config.Profiles)
             {
                 _profileRows.Add(new ProfileRow
                 {
                     Model = profile,
-                    Name = profile.Name,
+                    Name = string.IsNullOrWhiteSpace(profile.Name) ? "Без имени" : profile.Name,
                     Subtitle = DescribeRules(profile),
-                    Accent = ToBrush(profile.Accent),
-                    ActiveMark = ReferenceEquals(profile, _app.Engine.ActiveProfile) ? "●" : ""
+                    Accent = AccentBrush(profile.Accent),
+                    Initial = InitialOf(profile.Name),
+                    Icon = AppCatalog.IconFor(profile.ApplicationPath),
+                    ActiveVisibility = ReferenceEquals(profile, _app.Engine.ActiveProfile)
+                        ? Visibility.Visible
+                        : Visibility.Collapsed
                 });
             }
+
+            ProfileCountText.Text = _profileRows.Count.ToString();
 
             var row = _profileRows.FirstOrDefault(r => r.Model.Id == selectedId) ?? _profileRows.FirstOrDefault();
             ProfileList.SelectedItem = row;
@@ -104,7 +118,72 @@ public partial class MainWindow : Window
 
     private static string DescribeRules(Profile profile)
     {
-        if (profile.IsFallback) return "когда ничего не подошло";
+        if (profile.IsFallback)
+            return string.IsNullOrWhiteSpace(profile.ApplicationPath)
+                ? "работает во всех окнах"
+                : profile.ApplicationName;
+
+        if (!string.IsNullOrWhiteSpace(profile.ApplicationPath))
+            return Path.GetFileName(profile.ApplicationPath);
+
+        var parts = new List<string>();
+        if (profile.Match.Processes.Count > 0)
+            parts.Add(string.Join(", ", profile.Match.Processes.Take(2)) +
+                      (profile.Match.Processes.Count > 2 ? "…" : ""));
+        if (!string.IsNullOrWhiteSpace(profile.Match.TitleContains))
+            parts.Add("\"" + profile.Match.TitleContains + "\"");
+        if (!string.IsNullOrWhiteSpace(profile.Match.WindowClass))
+            parts.Add("класс " + profile.Match.WindowClass);
+
+        return parts.Count == 0 ? "приложение не выбрано" : string.Join(" · ", parts);
+    }
+
+    private void RefreshContent()
+    {
+        if (_selected is null) return;
+
+        _suppress = true;
+        try
+        {
+            ProfileNameBox.Text = _selected.Name;
+            AppNameText.Text = string.IsNullOrWhiteSpace(_selected.ApplicationPath)
+                ? (_selected.IsFallback
+                    ? "Все приложения"
+                    : _selected.Match.Processes.Count > 0
+                        ? "Правила: " + string.Join(", ", _selected.Match.Processes.Take(2)) +
+                          (_selected.Match.Processes.Count > 2 ? "…" : "")
+                        : "Приложение не выбрано")
+                : _selected.Name;
+            AppPathText.Text = _selected.ApplicationPath
+                ?? (_selected.IsFallback ? "профиль по умолчанию" : DescribeRules(_selected));
+
+            HeaderInitial.Text = InitialOf(_selected.Name);
+            HeaderIcon.Source = AppCatalog.IconFor(_selected.ApplicationPath);
+
+            RulesChipText.Text = DescribeRulesChip(_selected);
+            RulesChipText.ToolTip = DescribeRulesChip(_selected);
+
+            var psf = _selected.VendorProfilePath;
+            PsfChipText.Text = string.IsNullOrWhiteSpace(psf)
+                ? "раскладка .psf не выбрана"
+                : "psf: " + Path.GetFileName(psf);
+            PsfChipText.ToolTip = psf ?? "Файл раскладки MBF1000PRO";
+
+            FallbackChip.Visibility = _selected.IsFallback ? Visibility.Visible : Visibility.Collapsed;
+            ShowAllToggle.IsChecked = _showAllButtons;
+        }
+        finally
+        {
+            _suppress = false;
+        }
+
+        BuildRows();
+    }
+
+    private static string DescribeRulesChip(Profile profile)
+    {
+        if (profile.IsFallback) return "по умолчанию";
+
         var parts = new List<string>();
         if (profile.Match.Processes.Count > 0)
             parts.Add(string.Join(", ", profile.Match.Processes.Take(3)) +
@@ -112,54 +191,74 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(profile.Match.TitleContains))
             parts.Add("\"" + profile.Match.TitleContains + "\"");
         if (!string.IsNullOrWhiteSpace(profile.Match.WindowClass))
-            parts.Add("класс " + profile.Match.WindowClass);
+            parts.Add("класс: " + profile.Match.WindowClass);
+
         return parts.Count == 0 ? "правила не заданы" : string.Join(" · ", parts);
     }
 
-    private void RefreshEditor()
+    private void BuildRows()
     {
+        _buttonRows.Clear();
+        _otherRows.Clear();
         if (_selected is null) return;
-        _suppress = true;
-        try
+
+        var accent = AccentBrush(_selected.Accent);
+        var tint = TintBrush(_selected.Accent);
+        int assigned = 0;
+
+        foreach (var info in MouseButtonMap.Editable)
         {
-            ProfileNameBox.Text = _selected.Name;
-            ProcessesBox.Text = string.Join(", ", _selected.Match.Processes);
-            TitleBox.Text = _selected.Match.TitleContains ?? "";
-            ClassBox.Text = _selected.Match.WindowClass ?? "";
-            PriorityBox.Text = _selected.Match.Priority.ToString();
+            var binding = _selected.Bindings.FirstOrDefault(b => b.Button == info.Number && b.Enabled);
+            if (binding is not null) assigned++;
+            else if (!_showAllButtons) continue;
 
-            var isDefault = _selected.Id == _app.Config.DefaultProfileId || _selected.IsFallback;
-            MakeDefaultButton.IsEnabled = !isDefault;
-            MakeDefaultButton.Content = isDefault ? "Основной профиль" : "Сделать основным";
-            DeleteProfileButton.IsEnabled = !isDefault;
-            DeleteProfileButton.Opacity = isDefault ? 0.45 : 1;
-
-            ProfileHint.Text = _selected.IsFallback
-                ? "Резервный профиль: работает в любых окнах, где нет совпадений с другими профилями."
-                : "Профиль включается, когда активное окно совпадает с правилами ниже.";
-
-            var rows = _selected.Bindings.Select(b => new BindingRow
+            _buttonRows.Add(new ButtonRow
             {
-                Model = b,
-                TriggerDisplay = b.GetTrigger().DisplayName,
-                Label = string.IsNullOrWhiteSpace(b.Label) ? "" : b.Label,
-                ActionSummary = DescribeAction(b.Action),
-                ActionDetail = DescribeActionDetail(b.Action)
-            }).ToList();
+                Model = binding,
+                IsButton = true,
+                Button = info.Number,
+                NumberText = info.Number.ToString(),
+                Title = string.IsNullOrWhiteSpace(binding?.Label) ? info.Name : binding!.Label!,
+                TriggerText = binding is null
+                    ? $"Ctrl+Alt+Shift+{info.Letter} · не назначено"
+                    : $"Кнопка {info.Number} · {Trigger.Parse(binding.Trigger).DisplayName}",
+                ActionSummary = binding is null ? "Без действия" : DescribeAction(binding.Action),
+                ActionDetail = binding is null
+                    ? "Нажмите «Изменить», чтобы назначить действие"
+                    : DescribeActionDetail(binding.Action),
+                Accent = accent,
+                AccentBackground = tint,
+                AssignedVisibility = binding is null ? Visibility.Collapsed : Visibility.Visible
+            });
+        }
 
-            BindingsGrid.ItemsSource = rows;
-            BindingCount.Text = rows.Count == 0 ? "пока пусто" : $"{rows.Count} шт.";
-        }
-        finally
+        foreach (var binding in _selected.Bindings.Where(b => b.Button <= 0))
         {
-            _suppress = false;
+            var trigger = Trigger.Parse(binding.Trigger);
+            _otherRows.Add(new ButtonRow
+            {
+                Model = binding,
+                IsButton = false,
+                NumberText = "—",
+                Title = string.IsNullOrWhiteSpace(binding.Label) ? trigger.DisplayName : binding.Label!,
+                TriggerText = trigger.DisplayName,
+                ActionSummary = DescribeAction(binding.Action),
+                ActionDetail = DescribeActionDetail(binding.Action),
+                Accent = accent,
+                AccentBackground = tint,
+                AssignedVisibility = Visibility.Visible
+            });
         }
+
+        BindingCountText.Text = $"{assigned} из {MouseButtonMap.Editable.Count()}";
+        EmptyState.Visibility = assigned == 0 ? Visibility.Visible : Visibility.Collapsed;
+        OtherSection.Visibility = _otherRows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Commit(bool refreshList = true)
     {
         _app.Engine.Invalidate();
-        RefreshEditor();
+        RefreshContent();
         if (refreshList) RefreshProfileList();
         ScheduleSave();
     }
@@ -170,7 +269,60 @@ public partial class MainWindow : Window
         _saveTimer.Start();
     }
 
-    // ------------------------------------------------------------------ header
+    // ------------------------------------------------------------------ menus
+
+    private ContextMenu Menu(string key) => (ContextMenu)Resources[key];
+
+    private static MenuItem MenuItemAt(ContextMenu menu, int index) => (MenuItem)menu.Items[index];
+
+    private static void OpenMenu(ContextMenu menu, FrameworkElement target)
+    {
+        menu.PlacementTarget = target;
+        menu.Placement = PlacementMode.Bottom;
+        menu.HorizontalOffset = 0;
+        menu.VerticalOffset = -2;
+        menu.IsOpen = true;
+    }
+
+    private void FileMenuButton_Click(object sender, RoutedEventArgs e) =>
+        OpenMenu(Menu("FileMenu"), (FrameworkElement)sender);
+
+    private void ProfileMenuButton_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = Menu("ProfileMenu");
+        bool editable = _selected is { IsFallback: false };
+        MenuItemAt(menu, 0).IsEnabled = _selected is not null;
+        MenuItemAt(menu, 1).IsEnabled = _selected is not null;
+        MenuItemAt(menu, 3).IsEnabled = editable;
+        MenuItemAt(menu, 4).IsEnabled = editable;
+        OpenMenu(menu, (FrameworkElement)sender);
+    }
+
+    private void EditMenuButton_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = Menu("EditMenu");
+        MenuItemAt(menu, 2).IsChecked = _showAllButtons;
+        OpenMenu(menu, (FrameworkElement)sender);
+    }
+
+    private void HelpMenuButton_Click(object sender, RoutedEventArgs e) =>
+        OpenMenu(Menu("HelpMenu"), (FrameworkElement)sender);
+
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)
+        {
+            e.Handled = true;
+            NewProfile_Click(sender, e);
+        }
+        else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
+        {
+            e.Handled = true;
+            ImportProfile_Click(sender, e);
+        }
+    }
+
+    // ------------------------------------------------------------------ title bar
 
     private void PauseButton_Click(object sender, RoutedEventArgs e)
     {
@@ -209,7 +361,7 @@ public partial class MainWindow : Window
         LastInputText.Text = $"{info.Time:HH:mm:ss}  ·  {info.Description}  ({info.Source})";
     }
 
-    // ------------------------------------------------------------------ profile list
+    // ------------------------------------------------------------------ profiles
 
     private void ProfileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -217,102 +369,119 @@ public partial class MainWindow : Window
         if (ProfileList.SelectedItem is ProfileRow row)
         {
             _selected = row.Model;
-            RefreshEditor();
+            RefreshContent();
         }
     }
 
-    private void AddProfileButton_Click(object sender, RoutedEventArgs e)
+    private void NewProfile_Click(object sender, RoutedEventArgs e)
     {
+        var index = _app.Config.Profiles.Count;
         var profile = new Profile
         {
             Name = "Новый профиль",
-            Accent = "#4C9AFF",
+            Accent = AccentPalette[index % AccentPalette.Length],
             Match = new MatchRules { Priority = 10 }
         };
+
         _app.Config.Profiles.Add(profile);
         _selected = profile;
         _app.Engine.Invalidate();
         RefreshProfileList();
-        RefreshEditor();
+        RefreshContent();
         ScheduleSave();
+
         ProfileNameBox.Focus();
         ProfileNameBox.SelectAll();
-    }
 
-    private void MakeDefaultButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selected is null) return;
-        foreach (var p in _app.Config.Profiles) p.IsFallback = false;
-        _selected.IsFallback = true;
-        _app.Config.DefaultProfileId = _selected.Id;
-        Commit();
-    }
-
-    private void DeleteProfileButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selected is null) return;
-        if (!AppDialog.Confirm($"Удалить профиль «{_selected.Name}»?", "Удаление профиля")) return;
-        _app.Config.Profiles.Remove(_selected);
-        _selected = _app.Config.FallbackProfile;
-        _app.Engine.Invalidate();
-        RefreshProfileList();
-        RefreshEditor();
-        ScheduleSave();
-    }
-
-    // ------------------------------------------------------------------ rules
-
-    private void Rules_Changed(object sender, TextChangedEventArgs e)
-    {
-        if (_suppress || _selected is null) return;
-
-        _selected.Match.Processes = ProcessesBox.Text
-            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
-        _selected.Match.TitleContains = string.IsNullOrWhiteSpace(TitleBox.Text) ? null : TitleBox.Text.Trim();
-        _selected.Match.WindowClass = string.IsNullOrWhiteSpace(ClassBox.Text) ? null : ClassBox.Text.Trim();
-        _selected.Match.Priority = int.TryParse(PriorityBox.Text, out var pr) ? pr : 0;
-
-        _app.Engine.Invalidate();
-        RefreshProfileList();
-        ScheduleSave();
+        ChooseApp_Click(sender, e);
     }
 
     private void ProfileNameBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_suppress || _selected is null) return;
         _selected.Name = ProfileNameBox.Text;
+        HeaderInitial.Text = InitialOf(_selected.Name);
         RefreshProfileList();
         ScheduleSave();
     }
 
-    private void AddActiveWindowButton_Click(object sender, RoutedEventArgs e)
+    private void ChooseApp_Click(object sender, RoutedEventArgs e)
     {
         if (_selected is null) return;
-        var window = _app.Engine.CurrentWindow;
-        var name = window?.ProcessName;
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            AppDialog.ShowInfo("Не удалось определить активное окно. Переключитесь в нужную программу и попробуйте снова.");
-            return;
-        }
-        var list = ProcessesBox.Text
-            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
-        if (!list.Contains(name, StringComparer.OrdinalIgnoreCase))
-        {
-            list.Add(name);
-            ProcessesBox.Text = string.Join(", ", list);
-        }
-        else
-        {
-            AppDialog.ShowInfo($"«{name}» уже добавлен в этот профиль.");
-        }
+
+        var entry = AppPickerDialog.Pick(this, _selected.ApplicationPath);
+        if (entry is null) return;
+
+        _selected.ApplicationPath = entry.Path;
+        _selected.Match.Processes = new List<string> { entry.ProcessName };
+
+        if (string.IsNullOrWhiteSpace(_selected.Name) || _selected.Name == "Новый профиль")
+            _selected.Name = entry.Name;
+
+        Commit();
+        Keyboard.ClearFocus();
+        LastInputText.Text = "Профиль привязан к " + entry.Name;
+    }
+
+    private void Rules_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null) return;
+
+        var dialog = new RulesDialog(_selected) { Owner = this };
+        if (dialog.ShowDialog() != true || !dialog.Saved) return;
+
+        Commit();
+    }
+
+    private void MakeDefault_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null) return;
+
+        foreach (var profile in _app.Config.Profiles) profile.IsFallback = false;
+        _selected.IsFallback = true;
+        _app.Config.DefaultProfileId = _selected.Id;
+        Commit();
+    }
+
+    private void DeleteProfile_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null || _selected.IsFallback) return;
+        if (!AppDialog.Confirm($"Удалить профиль «{_selected.Name}»?", "Удаление профиля")) return;
+
+        _app.Config.Profiles.Remove(_selected);
+        _selected = _app.Config.FallbackProfile;
+        _app.Engine.Invalidate();
+        RefreshProfileList();
+        RefreshContent();
+        ScheduleSave();
     }
 
     // ------------------------------------------------------------------ bindings
 
-    private void AddBindingButton_Click(object sender, RoutedEventArgs e)
+    private ButtonRow? RowOf(object sender) =>
+        sender is FrameworkElement { DataContext: ButtonRow row } ? row : null;
+
+    private void EditButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null) return;
+        var row = RowOf(sender);
+        if (row is null) return;
+
+        var trigger = row.Model?.Trigger
+                      ?? (row.IsButton ? MouseButtonMap.TriggerFor(row.Button) : "");
+        if (string.IsNullOrWhiteSpace(trigger)) return;
+
+        var action = row.Model?.Action.Clone() ?? new ActionSpec { Kind = ActionKind.Keys, Value = "" };
+        var title = row.IsButton ? $"Кнопка {row.Button}" : "Действие";
+
+        var result = BindingDialog.Edit(this, _app, trigger, row.Model?.Label ?? "", action,
+            row.Model is null ? "Назначить действие" : "Изменить действие");
+        if (result is null) return;
+
+        UpsertBinding(row, result);
+    }
+
+    private void CaptureBinding_Click(object sender, RoutedEventArgs e)
     {
         if (_selected is null) return;
 
@@ -320,128 +489,135 @@ public partial class MainWindow : Window
         if (trigger is null) return;
 
         var key = trigger.ToString();
-        var existing = _selected.Bindings.FirstOrDefault(b =>
-            string.Equals(b.Trigger, key, StringComparison.OrdinalIgnoreCase));
-        if (existing is not null)
-        {
-            if (!AppDialog.Confirm(
-                    $"Для «{trigger.DisplayName}» в этом профиле уже есть действие. Заменить его?",
-                    "Кнопка уже назначена"))
-                return;
-            _selected.Bindings.Remove(existing);
-        }
+        int button = MouseButtonMap.ButtonForTrigger(key);
 
-        var result = BindingDialog.Edit(this, _app, key, "", new ActionSpec { Kind = ActionKind.Keys, Value = "" },
-            $"Новое действие для «{trigger.DisplayName}»");
+        Binding? existing = button > 0 ? _selected.FindButton(button) : _selected.Find(key);
+        if (existing is not null &&
+            !AppDialog.Confirm(
+                $"Для «{trigger.DisplayName}» в этом профиле уже есть действие. Заменить его?",
+                "Кнопка уже назначена"))
+            return;
+
+        var action = existing?.Action.Clone() ?? new ActionSpec { Kind = ActionKind.Keys, Value = "" };
+        var result = BindingDialog.Edit(this, _app, key, existing?.Label ?? "", action,
+            button > 0 ? $"Кнопка {button}" : "Новое действие");
         if (result is null) return;
 
-        _selected.Bindings.Add(new Binding
-        {
-            Trigger = result.Trigger,
-            Label = result.Label,
-            Action = result.Action
-        });
-        Commit();
+        var row = new ButtonRow { Model = existing, IsButton = button > 0, Button = button };
+        UpsertBinding(row, result);
     }
 
-    private void EditBinding_Click(object sender, RoutedEventArgs e)
+    private void UpsertBinding(ButtonRow row, BindingEditResult result)
     {
-        if (_selected is null || sender is not FrameworkElement { DataContext: BindingRow row }) return;
+        if (_selected is null) return;
 
-        var result = BindingDialog.Edit(this, _app, row.Model.Trigger, row.Model.Label ?? "",
-            row.Model.Action.Clone(), "Изменить действие");
-        if (result is null) return;
+        var binding = row.Model;
+        if (binding is null)
+        {
+            binding = new Binding { Button = row.IsButton ? row.Button : 0 };
+            _selected.Bindings.Add(binding);
+        }
 
-        row.Model.Trigger = result.Trigger;
-        row.Model.Label = result.Label;
-        row.Model.Action = result.Action;
+        binding.Trigger = result.Trigger;
+        binding.Label = result.Label;
+        binding.Action = result.Action;
+        binding.Enabled = true;
+
         Commit();
+        LastInputText.Text = "Сохранено: " + (result.Label.Length > 0 ? result.Label : DescribeAction(result.Action));
     }
 
     private void TestBinding_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { DataContext: BindingRow row }) return;
+        var row = RowOf(sender);
+        if (row?.Model is null) return;
+
         _app.Engine.TestAction(row.Model.Action);
         LastInputText.Text = "Тест: " + DescribeAction(row.Model.Action);
     }
 
-    private void DeleteBinding_Click(object sender, RoutedEventArgs e)
+    private void RemoveButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_selected is null || sender is not FrameworkElement { DataContext: BindingRow row }) return;
+        if (_selected is null) return;
+        var row = RowOf(sender);
+        if (row?.Model is null) return;
+
         _selected.Bindings.Remove(row.Model);
         Commit();
     }
 
-    private void DiagnosticsButton_Click(object sender, RoutedEventArgs e)
+    private void ShowAllToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _showAllButtons = ShowAllToggle.IsChecked == true;
+        BuildRows();
+    }
+
+    private void ShowAll_Click(object sender, RoutedEventArgs e)
+    {
+        _showAllButtons = !_showAllButtons;
+        ShowAllToggle.IsChecked = _showAllButtons;
+        BuildRows();
+    }
+
+    private void Diagnostics_Click(object sender, RoutedEventArgs e)
     {
         var window = new DiagnosticsWindow(_app.Engine) { Owner = this };
         window.ShowDialog();
     }
 
-    // ------------------------------------------------------------------ settings
+    // ------------------------------------------------------------------ files
 
-    private void EnabledCheck_Click(object sender, RoutedEventArgs e)
+    private void ImportProfile_Click(object sender, RoutedEventArgs e)
     {
-        if (_suppress) return;
-        _app.Config.Enabled = EnabledCheck.IsChecked == true;
-        _app.Engine.Invalidate();
-        UpdateStatus();
-        ScheduleSave();
-    }
-
-    private void ToastCheck_Click(object sender, RoutedEventArgs e)
-    {
-        if (_suppress) return;
-        _app.Config.ShowToast = ToastCheck.IsChecked == true;
-        ScheduleSave();
-    }
-
-    private void AutostartCheck_Click(object sender, RoutedEventArgs e)
-    {
-        if (_suppress) return;
-        _app.Config.StartWithWindows = AutostartCheck.IsChecked == true;
-        StartupService.Apply(_app.Config.StartWithWindows);
-        ScheduleSave();
-    }
-
-    private void HotkeyBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        e.Handled = true;
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift
-            or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin)
-            return;
-        if (key == Key.Escape)
+        var dialog = new OpenFileDialog
         {
-            HotkeyBox.Text = _app.Config.ToggleHotkey;
-            Keyboard.ClearFocus();
-            return;
-        }
+            Title = "Открыть профиль MouseMackros",
+            Filter = "Профиль MouseMackros (*.json)|*.json|Все файлы (*.*)|*.*"
+        };
+        if (dialog.ShowDialog(this) != true) return;
 
-        var vk = KeyInterop.VirtualKeyFromKey(key);
-        if (vk == 0) return;
-
-        var mods = Keyboard.Modifiers;
-        if (mods == ModifierKeys.None)
+        try
         {
-            LastInputText.Text = "Горячая клавиша должна содержать модификатор (Ctrl, Alt, Shift или Win)";
-            return;
+            var profile = ProfileStore.ImportProfile(dialog.FileName);
+            if (_app.Config.Profiles.Any(p => p.Name == profile.Name))
+                profile.Name += " (импорт)";
+
+            _app.Config.Profiles.Add(profile);
+            _selected = profile;
+            Commit();
+            LastInputText.Text = "Импортирован профиль: " + profile.Name;
         }
-
-        var combo = new List<string>();
-        if (mods.HasFlag(ModifierKeys.Control)) combo.Add("Ctrl");
-        if (mods.HasFlag(ModifierKeys.Shift)) combo.Add("Shift");
-        if (mods.HasFlag(ModifierKeys.Alt)) combo.Add("Alt");
-        if (mods.HasFlag(ModifierKeys.Windows)) combo.Add("Win");
-        var text = string.Join("+", combo) + "+" + KeyNames.GetName(vk);
-
-        _app.Config.ToggleHotkey = text;
-        HotkeyBox.Text = text;
-        ScheduleSave();
-        Keyboard.ClearFocus();
+        catch (Exception ex)
+        {
+            AppDialog.ShowError("Не удалось открыть профиль.\n\n" + ex.Message, "Импорт профиля");
+        }
     }
 
-    private void PsfButton_Click(object sender, RoutedEventArgs e)
+    private void ExportProfile_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null) return;
+
+        var name = string.Concat(_selected.Name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        var dialog = new SaveFileDialog
+        {
+            Title = "Сохранить профиль MouseMackros",
+            Filter = "Профиль MouseMackros (*.json)|*.json",
+            FileName = (string.IsNullOrWhiteSpace(name) ? "profile" : name) + ".json"
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        try
+        {
+            ProfileStore.ExportProfile(_selected, dialog.FileName);
+            LastInputText.Text = "Профиль сохранён: " + dialog.FileName;
+        }
+        catch (Exception ex)
+        {
+            AppDialog.ShowError("Не удалось сохранить файл.\n\n" + ex.Message, "Экспорт профиля");
+        }
+    }
+
+    private void GeneratePsf_Click(object sender, RoutedEventArgs e)
     {
         var result = PsfGenerator.Generate();
         if (result is null)
@@ -458,14 +634,14 @@ public partial class MainWindow : Window
             "Файл создан:\n" + result.Path + "\n\n" +
             "Что делать дальше:\n" +
             "1. Откройте MBF1000PRO Mouse.\n" +
-            "2. Нажмите «Config» (внизу слева) → импорт профиля.\n" +
-            "3. Выберите файл MouseMackros.psf и примените его к мыши.\n\n" +
-            "После этого каждая дополнительная кнопка будет отправлять\n" +
-            "сочетание Ctrl+Alt+Shift+A…M, а MouseMackros превратит его\n" +
+            "2. Config → импорт профиля.\n" +
+            "3. Выберите MouseMackros.psf и примените его к мыши.\n\n" +
+            "После этого кнопки 1–11, 15 и 16 будут отправлять\n" +
+            "Ctrl+Alt+Shift+A…M, а MouseMackros превратит их\n" +
             "в действие для активного окна.\n\n" +
             "Открыть папку с файлом?";
 
-        if (AppDialog.Confirm(text, "Профиль для мыши готов"))
+        if (AppDialog.Confirm(text, "Раскладка для мыши готова"))
         {
             Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{result.Path}\"")
             {
@@ -474,75 +650,75 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DataFolderButton_Click(object sender, RoutedEventArgs e)
+    private void LoadPsf_Click(object sender, RoutedEventArgs e)
     {
-        Process.Start(new ProcessStartInfo("explorer.exe", ConfigService.RootDir) { UseShellExecute = true });
-    }
+        if (_selected is null) return;
 
-    // ------------------------------------------------------------------ import / export
-
-    private void ImportButton_Click(object sender, RoutedEventArgs e)
-    {
         var dialog = new OpenFileDialog
         {
-            Title = "Импорт профилей MouseMackros",
-            Filter = "Профили MouseMackros (*.json)|*.json|Все файлы (*.*)|*.*"
+            Title = "Раскладка MBF1000PRO",
+            Filter = "Раскладка MBF1000PRO (*.psf)|*.psf|Все файлы (*.*)|*.*"
         };
         if (dialog.ShowDialog(this) != true) return;
 
-        try
+        var psf = PsfReader.Read(dialog.FileName);
+        if (psf is null)
         {
-            var imported = ConfigService.Import(dialog.FileName);
-            bool replace = AppDialog.Confirm(
-                $"В файле {imported.Profiles.Count} профил(ей).\n\n" +
-                "Да — заменить текущие профили.\n" +
-                "Нет — добавить их к существующим.",
-                "Импорт профилей");
-
-            if (replace)
-            {
-                _app.Config.Profiles = imported.Profiles;
-                _app.Config.DefaultProfileId = imported.DefaultProfileId;
-            }
-            else
-            {
-                foreach (var profile in imported.Profiles)
-                {
-                    var copy = profile.Clone();
-                    copy.Name = profile.Name;
-                    copy.IsFallback = false;
-                    _app.Config.Profiles.Add(copy);
-                }
-            }
-
-            _selected = _app.Config.FallbackProfile;
-            _app.ReloadConfig(_app.Config);
-            LastInputText.Text = "Импортировано профилей: " + imported.Profiles.Count;
+            AppDialog.ShowError("Не удалось прочитать .psf файл.", "Раскладка");
+            return;
         }
-        catch (Exception ex)
+
+        _selected.VendorProfilePath = dialog.FileName;
+
+        int updated = 0;
+        int mapped = 0;
+        foreach (var button in MouseButtonMap.Editable)
         {
-            AppDialog.ShowError("Не удалось импортировать профили.\n\n" + ex.Message);
+            var key = psf.ForButton(button.Number);
+            if (key?.Trigger is null) continue;
+            mapped++;
+
+            var binding = _selected.FindButton(button.Number);
+            if (binding is null) continue;
+            if (!string.Equals(binding.Trigger, key.Trigger, StringComparison.OrdinalIgnoreCase))
+            {
+                binding.Trigger = key.Trigger;
+                updated++;
+            }
         }
+
+        Commit();
+        LastInputText.Text = mapped == 0
+            ? "В .psf не найдено назначений для кнопок мыши"
+            : $"Раскладка загружена: кнопок {mapped}, обновлено триггеров {updated}";
     }
 
-    private void ExportButton_Click(object sender, RoutedEventArgs e)
+    private void DataFolder_Click(object sender, RoutedEventArgs e) =>
+        Process.Start(new ProcessStartInfo("explorer.exe", ProfileStore.RootDir) { UseShellExecute = true });
+
+    private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new SaveFileDialog
-        {
-            Title = "Экспорт профилей MouseMackros",
-            Filter = "Профили MouseMackros (*.json)|*.json",
-            FileName = "mousemackros-profiles.json"
-        };
-        if (dialog.ShowDialog(this) != true) return;
-        try
-        {
-            ConfigService.Export(_app.Config, dialog.FileName);
-            LastInputText.Text = "Профили сохранены в " + dialog.FileName;
-        }
-        catch (Exception ex)
-        {
-            AppDialog.ShowError("Не удалось сохранить файл.\n\n" + ex.Message);
-        }
+        var dialog = new SettingsWindow(_app.Config) { Owner = this };
+        if (dialog.ShowDialog() != true || !dialog.Changed) return;
+
+        _app.Engine.Invalidate();
+        UpdateStatus();
+        ScheduleSave();
+    }
+
+    private void Exit_Click(object sender, RoutedEventArgs e) => _app.ExitApp();
+
+    private void About_Click(object sender, RoutedEventArgs e)
+    {
+        var version = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
+        AppDialog.ShowInfo(
+            "MouseMackros " + version + "\n\n" +
+            "Контекстные раскладки для мыши MBF1000PRO.\n" +
+            "Кнопки отправляют Ctrl+Alt+Shift+A…M, а программа\n" +
+            "подменяет их действиями активного профиля.\n\n" +
+            "Пауза: " + _app.Config.ToggleHotkey + "\n" +
+            "Профили: " + ProfileStore.RootDir,
+            "О программе");
     }
 
     // ------------------------------------------------------------------ closing
@@ -568,7 +744,10 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ helpers
 
-    private static Brush ToBrush(string hex)
+    private static string InitialOf(string? name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+
+    private static Brush AccentBrush(string hex)
     {
         try
         {
@@ -577,6 +756,19 @@ public partial class MainWindow : Window
         catch
         {
             return new SolidColorBrush(Color.FromRgb(0x4C, 0x9A, 0xFF));
+        }
+    }
+
+    private static Brush TintBrush(string hex)
+    {
+        try
+        {
+            var color = (Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+            return new SolidColorBrush(Color.FromArgb(0x2A, color.R, color.G, color.B));
+        }
+        catch
+        {
+            return new SolidColorBrush(Color.FromArgb(0x2A, 0x4C, 0x9A, 0xFF));
         }
     }
 
@@ -630,16 +822,24 @@ public partial class MainWindow : Window
         public Profile Model { get; init; } = null!;
         public string Name { get; init; } = "";
         public string Subtitle { get; init; } = "";
+        public string Initial { get; init; } = "";
         public Brush Accent { get; init; } = Brushes.Gray;
-        public string ActiveMark { get; init; } = "";
+        public ImageSource? Icon { get; init; }
+        public Visibility ActiveVisibility { get; init; } = Visibility.Collapsed;
     }
 
-    public sealed class BindingRow
+    public sealed class ButtonRow
     {
-        public Binding Model { get; init; } = null!;
-        public string TriggerDisplay { get; init; } = "";
-        public string Label { get; init; } = "";
+        public Binding? Model { get; init; }
+        public bool IsButton { get; init; }
+        public int Button { get; init; }
+        public string NumberText { get; init; } = "";
+        public string Title { get; init; } = "";
+        public string TriggerText { get; init; } = "";
         public string ActionSummary { get; init; } = "";
         public string ActionDetail { get; init; } = "";
+        public Brush Accent { get; init; } = Brushes.Gray;
+        public Brush AccentBackground { get; init; } = Brushes.Transparent;
+        public Visibility AssignedVisibility { get; init; } = Visibility.Collapsed;
     }
 }
