@@ -193,7 +193,7 @@ public partial class MainWindow : Window
         var activeName = known ?? status.ProfileName;
 
         VendorStatusText.Text = status.Known
-            ? $"На мыши раскладка «{activeName}» — переключение по окнам не работает. Нужен MouseMackros.psf."
+            ? $"На мыши раскладка «{activeName}». Импортируйте MouseMackros.psf в активный профиль MBF1000PRO."
             : "Не удалось определить раскладку мыши. Примените MouseMackros.psf в MBF1000PRO.";
         VendorStatusText.ToolTip = string.IsNullOrWhiteSpace(status.ActivePath)
             ? null
