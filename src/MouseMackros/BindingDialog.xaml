@@ -1,0 +1,124 @@
+<Window x:Class="MouseMackros.BindingDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Действие" Width="580" SizeToContent="Height"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" Background="Transparent" AllowsTransparency="True">
+    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+            CornerRadius="10" Padding="22">
+        <StackPanel>
+            <Grid>
+                <TextBlock x:Name="TitleText" Text="Действие" FontSize="17" FontWeight="SemiBold" />
+                <Button Style="{StaticResource IconButton}" Content="✕" HorizontalAlignment="Right"
+                        Click="Cancel_Click" />
+            </Grid>
+
+            <!-- trigger -->
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Кнопка" Style="{StaticResource MutedText}" />
+                    <Border Background="#11141A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="6" Padding="10,7" Margin="0,4,0,0">
+                        <TextBlock x:Name="TriggerText" FontWeight="SemiBold" />
+                    </Border>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Захватить заново" Style="{StaticResource FlatButton}"
+                        VerticalAlignment="Bottom" Margin="10,0,0,0" Click="Recapture_Click" />
+            </Grid>
+
+            <StackPanel Margin="0,12,0,0">
+                <TextBlock Text="Подпись (необязательно)" Style="{StaticResource MutedText}" />
+                <TextBox x:Name="LabelBox" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <StackPanel Margin="0,12,0,0">
+                <TextBlock Text="Что делать" Style="{StaticResource MutedText}" />
+                <ComboBox x:Name="KindBox" Margin="0,4,0,0" SelectionChanged="KindBox_SelectionChanged" />
+            </StackPanel>
+
+            <!-- keys -->
+            <StackPanel x:Name="KeysPanel" Margin="0,12,0,0">
+                <TextBlock Text="Сочетание клавиш — нажмите его здесь" Style="{StaticResource MutedText}" />
+                <TextBox x:Name="KeysBox" Margin="0,4,0,0" IsReadOnly="True"
+                         PreviewKeyDown="KeysBox_PreviewKeyDown" Cursor="Hand" />
+            </StackPanel>
+
+            <!-- text -->
+            <StackPanel x:Name="TextPanel" Margin="0,12,0,0" Visibility="Collapsed">
+                <TextBlock Text="Текст, который нужно напечатать" Style="{StaticResource MutedText}" />
+                <TextBox x:Name="TextBoxValue" Margin="0,4,0,0" Height="80" AcceptsReturn="True"
+                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+            </StackPanel>
+
+            <!-- macro -->
+            <StackPanel x:Name="MacroPanel" Margin="0,12,0,0" Visibility="Collapsed">
+                <TextBlock Text="Сценарий макроса" Style="{StaticResource MutedText}" />
+                <TextBox x:Name="MacroBox" Margin="0,4,0,0" Height="150" AcceptsReturn="True"
+                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="12.5" />
+                <TextBlock x:Name="MacroHelp" Style="{StaticResource MutedText}" Margin="0,6,0,0"
+                           TextWrapping="Wrap" FontFamily="Consolas" />
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="110" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Режим" Style="{StaticResource MutedText}" />
+                        <ComboBox x:Name="MacroModeBox" Margin="0,4,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Повторов" Style="{StaticResource MutedText}" />
+                        <TextBox x:Name="RepeatBox" Margin="0,4,0,0" Text="0" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!-- media -->
+            <StackPanel x:Name="MediaPanel" Margin="0,12,0,0" Visibility="Collapsed">
+                <TextBlock Text="Медиа-команда" Style="{StaticResource MutedText}" />
+                <ComboBox x:Name="MediaBox" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <!-- run -->
+            <StackPanel x:Name="RunPanel" Margin="0,12,0,0" Visibility="Collapsed">
+                <TextBlock Text="Программа или файл" Style="{StaticResource MutedText}" />
+                <Grid Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="RunBox" />
+                    <Button Grid.Column="1" Content="Обзор…" Style="{StaticResource FlatButton}" Margin="8,0,0,0"
+                            Click="Browse_Click" />
+                </Grid>
+                <TextBlock Text="Аргументы" Style="{StaticResource MutedText}" Margin="0,8,0,0" />
+                <TextBox x:Name="ArgsBox" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <!-- profile -->
+            <StackPanel x:Name="ProfilePanel" Margin="0,12,0,0" Visibility="Collapsed">
+                <TextBlock Text="Профиль" Style="{StaticResource MutedText}" />
+                <ComboBox x:Name="ProfileBox" Margin="0,4,0,0" DisplayMemberPath="Name" SelectedValuePath="Id" />
+            </StackPanel>
+
+            <!-- scroll -->
+            <StackPanel x:Name="ScrollPanel" Margin="0,12,0,0" Visibility="Collapsed">
+                <TextBlock Text="Прокрутка (положительное — вверх)" Style="{StaticResource MutedText}" />
+                <TextBox x:Name="ScrollBox" Margin="0,4,0,0" Text="1" />
+            </StackPanel>
+
+            <Grid Margin="0,20,0,0">
+                <Button Content="Отмена" Style="{StaticResource FlatButton}" HorizontalAlignment="Left"
+                        MinWidth="100" Click="Cancel_Click" />
+                <Button x:Name="SaveButton" Content="Сохранить" Style="{StaticResource AccentButton}"
+                        HorizontalAlignment="Right" MinWidth="120" Click="Save_Click" />
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>
