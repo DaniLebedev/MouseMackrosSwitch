@@ -42,12 +42,47 @@ public static class ProfileStore
     {
         get
         {
-            var dir = _rootOverride ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "MouseMackros");
+            var dir = _rootOverride ?? DefaultRootDir();
             Directory.CreateDirectory(dir);
             return dir;
         }
+    }
+
+    /// <summary>
+    /// Keeps data next to the solution when the app runs from a repository, so
+    /// clones and GitHub uploads keep the profiles. Falls back to %APPDATA%
+    /// for a published build without a repo around it.
+    /// </summary>
+    private static string DefaultRootDir()
+    {
+        var repo = FindRepoRoot(AppContext.BaseDirectory);
+        if (repo is not null) return Path.Combine(repo, "data");
+
+        var exeData = Path.Combine(AppContext.BaseDirectory, "data");
+        if (Directory.Exists(exeData)) return exeData;
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "MouseMackros");
+    }
+
+    private static string? FindRepoRoot(string start)
+    {
+        try
+        {
+            var dir = new DirectoryInfo(start);
+            for (int i = 0; i < 10 && dir is not null; i++, dir = dir.Parent)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "MouseMackros.slnx")) ||
+                    Directory.Exists(Path.Combine(dir.FullName, ".git")))
+                    return dir.FullName;
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+        return null;
     }
 
     public static string ProfilesDir => Path.Combine(RootDir, "profiles");
@@ -68,10 +103,63 @@ public static class ProfileStore
         _rootOverride = Path.GetFullPath(Environment.ExpandEnvironmentVariables(directory.Trim('"')));
     }
 
+    /// <summary>
+    /// First run of the portable build: pull the old %APPDATA%\MouseMackros data
+    /// into the repository's data folder. The old files are left in place.
+    /// </summary>
+    private static void MigrateFromAppDataIfNeeded()
+    {
+        if (_rootOverride is not null) return;
+
+        try
+        {
+            var target = RootDir;
+            if (File.Exists(SettingsPath)) return;
+
+            var old = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "MouseMackros");
+            if (!Directory.Exists(old)) return;
+            if (string.Equals(Path.GetFullPath(old), Path.GetFullPath(target),
+                    StringComparison.OrdinalIgnoreCase))
+                return;
+
+            CopyFileIfExists(Path.Combine(old, "settings.json"), SettingsPath);
+            CopyDirectory(Path.Combine(old, "profiles"), ProfilesDir);
+            CopyDirectory(Path.Combine(old, "psf"), PsfDir);
+
+            Log($"Данные перенесены из {old} в {target}.");
+        }
+        catch (Exception ex)
+        {
+            Log("Не удалось перенести старые данные: " + ex.Message);
+        }
+    }
+
+    private static void CopyFileIfExists(string from, string to)
+    {
+        if (!File.Exists(from)) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        File.Copy(from, to, true);
+    }
+
+    private static void CopyDirectory(string from, string to)
+    {
+        if (!Directory.Exists(from)) return;
+        Directory.CreateDirectory(to);
+
+        foreach (var file in Directory.GetFiles(from))
+            File.Copy(file, Path.Combine(to, Path.GetFileName(file)), true);
+
+        foreach (var sub in Directory.GetDirectories(from))
+            CopyDirectory(sub, Path.Combine(to, Path.GetFileName(sub)));
+    }
+
     // ------------------------------------------------------------------ load
 
     public static AppConfig Load()
     {
+        MigrateFromAppDataIfNeeded();
         Directory.CreateDirectory(ProfilesDir);
 
         var config = new AppConfig();
@@ -189,6 +277,7 @@ public static class ProfileStore
             }
 
             MouseButtonMap.NormalizeBindings(profile);
+            DropNeutralEchoBindings(profile);
 
             // Older files kept a single ApplicationPath; newer ones allow many.
             var apps = new List<string>();
@@ -214,6 +303,8 @@ public static class ProfileStore
                     }
                 }
             }
+
+            ReimportPsfIfNeeded(profile);
         }
 
         if (config.Profiles.Count == 0)
@@ -236,6 +327,51 @@ public static class ProfileStore
             .OrderByDescending(p => p.IsFallback)
             .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// Older builds let the user load the neutral MouseMackros.psf into a profile,
+    /// which produced buttons that just echo Ctrl+Alt+Shift+A..M. Such bindings are
+    /// useless (the mouse already sends them), so drop them instead of showing them.
+    /// </summary>
+    private static void DropNeutralEchoBindings(Profile profile)
+    {
+        int echoes = 0;
+        foreach (var binding in profile.Bindings)
+        {
+            if (binding.Button <= 0 || binding.Action.Kind != ActionKind.Keys) continue;
+
+            var info = MouseButtonMap.Get(binding.Button);
+            if (info?.Letter is not char letter) continue;
+
+            var expected = MouseMackros.Interop.KeyNames.NormalizeCombo("Ctrl+Alt+Shift+" + letter);
+            var actual = MouseMackros.Interop.KeyNames.NormalizeCombo(binding.Action.Value);
+            if (string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase)) echoes++;
+        }
+
+        if (echoes < 10) return;
+
+        profile.Bindings.RemoveAll(b => b.Button > 0);
+        profile.VendorProfilePath = null;
+    }
+
+    private static void ReimportPsfIfNeeded(Profile profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile.VendorProfilePath)) return;
+        if (profile.PsfRevision >= PsfReader.CurrentRevision) return;
+        if (!File.Exists(profile.VendorProfilePath)) return;
+
+        var psf = PsfReader.Read(profile.VendorProfilePath);
+        if (psf is null) return;
+
+        if (psf.IsNeutralLayout)
+        {
+            profile.Bindings.RemoveAll(b => b.Button > 0);
+            profile.VendorProfilePath = null;
+            return;
+        }
+
+        psf.ApplyTo(profile);
     }
 
     // ------------------------------------------------------------------ save

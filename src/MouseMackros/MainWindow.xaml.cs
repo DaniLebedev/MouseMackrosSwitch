@@ -188,8 +188,12 @@ public partial class MainWindow : Window
         }
 
         VendorBanner.Visibility = Visibility.Visible;
+        var known = VendorSetup.Identify(status.ActivePath,
+            _app.Config.Profiles.Select(p => p.VendorProfilePath));
+        var activeName = known ?? status.ProfileName;
+
         VendorStatusText.Text = status.Known
-            ? $"На мыши профиль «{status.ProfileName}». Для переключения по окнам нужен MouseMackros.psf."
+            ? $"На мыши раскладка «{activeName}» — переключение по окнам не работает. Нужен MouseMackros.psf."
             : "Не удалось определить раскладку мыши. Примените MouseMackros.psf в MBF1000PRO.";
         VendorStatusText.ToolTip = string.IsNullOrWhiteSpace(status.ActivePath)
             ? null
@@ -664,12 +668,19 @@ public partial class MainWindow : Window
             "Что делать дальше:\n" +
             "1. Откройте MBF1000PRO Mouse.\n" +
             "2. Config → импорт профиля.\n" +
-            "3. Выберите MouseMackros.psf и примените его к мыши.\n\n" +
-            "ВАЖНО: именно этот профиль должен быть активен\n" +
-            "на мыши. Тогда каждая кнопка отправляет своё\n" +
+            "3. Выберите MouseMackros.psf и нажмите «Применить»/«OK».\n" +
+            "4. В списке профилей фирменной программы выберите\n" +
+            "   MouseMackros — он должен стать активным.\n\n" +
+            "ВАЖНО: на мыши должна быть активна именно эта\n" +
+            "раскладка. Тогда каждая кнопка отправляет своё\n" +
             "Ctrl+Alt+Shift+A…M, а MouseMackros подменяет\n" +
             "действие в зависимости от активного окна.\n\n" +
             "Открыть папку с файлом?";
+
+        if (VendorSetup.Detect() is { Known: true, UsesNeutralLayout: false } active)
+            text = text.Replace("Открыть папку с файлом?",
+                $"Сейчас на мыши активна раскладка «{active.ProfileName}».\n" +
+                "После импорта переключитесь на MouseMackros.\n\nОткрыть папку с файлом?");
 
         if (AppDialog.Confirm(text, "Раскладка для мыши готова"))
         {
@@ -697,6 +708,17 @@ public partial class MainWindow : Window
         if (psf is null)
         {
             AppDialog.ShowError("Не удалось прочитать .psf файл.", "Раскладка");
+            return;
+        }
+
+        if (psf.IsNeutralLayout)
+        {
+            AppDialog.ShowInfo(
+                "Это служебная раскладка MouseMackros.psf.\n\n" +
+                "Её нужно импортировать в MBF1000PRO и сделать активной на мыши,\n" +
+                "а в профиль приложения загружайте его собственный .psf\n" +
+                "(firefox.psf, word.psf, xz.psf и т. п.).",
+                "Не тот файл");
             return;
         }
 

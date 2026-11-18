@@ -1,0 +1,13 @@
+{
+  "Id": "59a5f028834946baae59cebbb0925034",
+  "Name": "Новый профиль",
+  "Accent": "#F2A33C",
+  "Applications": [],
+  "PsfRevision": 0,
+  "Match": {
+    "Processes": [],
+    "Priority": 10
+  },
+  "Bindings": [],
+  "IsFallback": false
+}

@@ -118,6 +118,9 @@ public sealed class Profile
     /// <summary>Optional .psf file with the mouse layout this profile expects.</summary>
     public string? VendorProfilePath { get; set; }
 
+    /// <summary>Decoder revision that produced <see cref="Bindings"/>; used for upgrades.</summary>
+    public int PsfRevision { get; set; }
+
     public MatchRules Match { get; set; } = new();
     public List<Binding> Bindings { get; set; } = new();
 
@@ -168,6 +171,7 @@ public sealed class Profile
         Applications = Applications.ToList(),
         ApplicationPath = ApplicationPath,
         VendorProfilePath = VendorProfilePath,
+        PsfRevision = PsfRevision,
         Match = new MatchRules
         {
             Processes = Match.Processes.ToList(),

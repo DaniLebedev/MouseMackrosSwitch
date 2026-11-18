@@ -98,6 +98,22 @@ Check("обычное сочетание не кнопка", MouseButtonMap.Butt
 Check("X1 не кнопка", MouseButtonMap.ButtonForTrigger("mouse:X1") == 0);
 Check("кнопки 12-14 не назначаются", MouseButtonMap.TriggerFor(12) == "" && MouseButtonMap.TriggerFor(14) == "");
 
+var echoConfig = Presets.CreateDefault();
+var echoProfile = new Profile { Name = "Echo" };
+foreach (var info in MouseButtonMap.Editable)
+{
+    echoProfile.Bindings.Add(new MouseMackros.Model.Binding
+    {
+        Button = info.Number,
+        Trigger = MouseButtonMap.TriggerFor(info.Number),
+        Action = new ActionSpec { Kind = ActionKind.Keys, Value = "Ctrl+Alt+Shift+" + info.Letter }
+    });
+}
+echoConfig.Profiles.Add(echoProfile);
+ProfileStore.Normalize(echoConfig);
+Check("эхо-бинги MouseMackros.psf удалены",
+    echoProfile.Bindings.Count == 0 && echoProfile.VendorProfilePath is null);
+
 // ---------------------------------------------------------------- macro parser
 var steps = MacroScript.Parse("""
     # comment
@@ -169,6 +185,7 @@ if (vendorDir is not null)
                 read.ForButton(16)?.Action?.Value ?? "null");
             Check("psf reader: ЛКМ", read.ForButton(12)?.Combo == "mouse:Left",
                 read.ForButton(12)?.Combo ?? "null");
+            Check("psf reader: нейтральная раскладка", read.IsNeutralLayout);
         }
 
         File.Delete(temp);
@@ -202,6 +219,11 @@ var vendorText = """
     Key3Value=700106
     MacroKey3Name=
     MacroActionNum=0
+    Key15Name=GamingMS.exe
+    Key15URL=C:\Program Files\MBF1000PRO Mouse\GamingMS.exe
+    Key15Value=600500
+    MacroKey15Name=
+    MacroActionNum=0
     """;
 File.WriteAllText(vendorPsf, vendorText, new UnicodeEncoding(false, true));
 
@@ -225,17 +247,33 @@ if (vendor is not null)
         macro?.Script ?? "null");
     Check("vendor psf: подпись макроса", vendor.ForButton(3)?.Label == "tab right",
         vendor.ForButton(3)?.Label ?? "null");
+    Check("vendor psf: запуск приложения",
+        vendor.ForButton(8)?.Action is { Kind: ActionKind.Run, Value: @"C:\Program Files\MBF1000PRO Mouse\GamingMS.exe" },
+        vendor.ForButton(8)?.Action?.Value ?? "null");
 
     var target = new Profile { Name = "Firefox" };
     int applied = vendor.ApplyTo(target);
-    Check("vendor psf: действия перенесены", applied == 3, applied.ToString());
+    Check("vendor psf: действия перенесены", applied == 4, applied.ToString());
     Check("vendor psf: триггер кнопки 3 нейтральный",
         target.FindButton(3)?.Trigger == MouseButtonMap.TriggerFor(3),
         target.FindButton(3)?.Trigger ?? "null");
     Check("vendor psf: путь .psf записан", target.VendorProfilePath == vendorPsf);
+    Check("vendor psf: ревизия декодера", target.PsfRevision == PsfReader.CurrentRevision,
+        target.PsfRevision.ToString());
 }
 
 File.Delete(vendorPsf);
+
+var userXz = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+    "Downloads", "xz.psf");
+if (File.Exists(userXz))
+{
+    var xz = PsfReader.Read(userXz);
+    Check("xz.psf: запуск приложения на кнопке 8",
+        xz?.ForButton(8)?.Action is { Kind: ActionKind.Run, Value.Length: > 0 },
+        xz?.ForButton(8)?.Action?.Value ?? "null");
+    Check("xz.psf: это не нейтральная раскладка", xz is { IsNeutralLayout: false });
+}
 
 // ---------------------------------------------------------------- profile storage
 var dataDir = Path.Combine(Path.GetTempPath(), "mm_selftest_" + Guid.NewGuid().ToString("n"));

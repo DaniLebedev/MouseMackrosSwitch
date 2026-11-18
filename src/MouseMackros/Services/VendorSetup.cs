@@ -9,6 +9,27 @@ public static class VendorSetup
 {
     public sealed record Status(string ActivePath, string ProfileName, bool UsesNeutralLayout, bool Known);
 
+    /// <summary>Finds the original .psf name when the vendor stored a copy as defaultN.psf.</summary>
+    public static string? Identify(string activePath, IEnumerable<string?> candidates)
+    {
+        try
+        {
+            var active = File.ReadAllBytes(activePath);
+            foreach (var candidate in candidates)
+            {
+                if (string.IsNullOrWhiteSpace(candidate) || !File.Exists(candidate)) continue;
+                var bytes = File.ReadAllBytes(candidate);
+                if (bytes.Length == active.Length && bytes.AsSpan().SequenceEqual(active))
+                    return Path.GetFileName(candidate);
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+        return null;
+    }
+
     public static Status? Detect()
     {
         try
@@ -54,10 +75,7 @@ public static class VendorSetup
             if (psf is null) return new Status(path, Path.GetFileName(path), false, false);
 
             // Neutral layout: buttons 1-3 must send Ctrl+Alt+Shift+A..C.
-            bool neutral =
-                psf.ForButton(1)?.RawValue == PsfGenerator.EncodeLetterTrigger('A') &&
-                psf.ForButton(2)?.RawValue == PsfGenerator.EncodeLetterTrigger('B') &&
-                psf.ForButton(3)?.RawValue == PsfGenerator.EncodeLetterTrigger('C');
+            bool neutral = psf.IsNeutralLayout;
 
             var name = psf.ProfileName;
             if (string.IsNullOrWhiteSpace(name) || name.Equals("Profile1", StringComparison.OrdinalIgnoreCase))

@@ -1,0 +1,8 @@
+{
+  "Version": 2,
+  "Enabled": true,
+  "ShowToast": true,
+  "StartWithWindows": false,
+  "ToggleHotkey": "Ctrl+Alt+P",
+  "DefaultProfileId": "default"
+}

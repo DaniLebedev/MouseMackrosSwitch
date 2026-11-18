@@ -6,3 +6,5 @@ obj/
 publish/
 artifacts/
 TestResults/
+data/log.txt
+data/**/*.tmp
