@@ -145,6 +145,8 @@ if (vendorDir is not null)
         Check("psf: кнопка 9 = Key13 = I", text.Contains("Key13Value=70070C"));
         Check("psf: кнопка 13 = Key1 = ПКМ", text.Contains("Key1Value=100200"));
         Check("psf: 16 кнопок", Enumerable.Range(0, 16).All(i => text.Contains($"Key{i}Value=")));
+        Check("psf: слоты макросов сброшены",
+            !text.Contains("MacroKeyIndex=1") && !text.Contains("MacroKeyIndex=2"));
         Check("psf: ЛКМ сохранена", text.Contains("Key0Value=100100"));
 
         var read = PsfReader.Read(temp);

@@ -170,6 +170,7 @@ public partial class MainWindow : Window
             PsfChipText.ToolTip = psf ?? "Файл раскладки MBF1000PRO";
 
             FallbackChip.Visibility = _selected.IsFallback ? Visibility.Visible : Visibility.Collapsed;
+            RulesButton.IsEnabled = !_selected.IsFallback;
             ShowAllToggle.IsChecked = _showAllButtons;
         }
         finally
@@ -292,7 +293,7 @@ public partial class MainWindow : Window
         var menu = Menu("ProfileMenu");
         bool editable = _selected is { IsFallback: false };
         MenuItemAt(menu, 0).IsEnabled = _selected is not null;
-        MenuItemAt(menu, 1).IsEnabled = _selected is not null;
+        MenuItemAt(menu, 1).IsEnabled = _selected is { IsFallback: false };
         MenuItemAt(menu, 3).IsEnabled = editable;
         MenuItemAt(menu, 4).IsEnabled = editable;
         OpenMenu(menu, (FrameworkElement)sender);
@@ -375,6 +376,12 @@ public partial class MainWindow : Window
 
     private void NewProfile_Click(object sender, RoutedEventArgs e)
     {
+        CreateProfile();
+        ChooseApp_Click(sender, e);
+    }
+
+    private Profile CreateProfile()
+    {
         var index = _app.Config.Profiles.Count;
         var profile = new Profile
         {
@@ -392,8 +399,7 @@ public partial class MainWindow : Window
 
         ProfileNameBox.Focus();
         ProfileNameBox.SelectAll();
-
-        ChooseApp_Click(sender, e);
+        return profile;
     }
 
     private void ProfileNameBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -409,7 +415,18 @@ public partial class MainWindow : Window
     {
         if (_selected is null) return;
 
-        var entry = AppPickerDialog.Pick(this, _selected.ApplicationPath);
+        if (_selected.IsFallback)
+        {
+            if (!AppDialog.Confirm(
+                    "Основной профиль работает во всех окнах, поэтому привязать его к одному приложению нельзя.\n\n" +
+                    "Создать отдельный профиль для приложения?",
+                    "Основной профиль"))
+                return;
+
+            CreateProfile();
+        }
+
+        var entry = AppPickerDialog.Pick(this, _selected!.ApplicationPath);
         if (entry is null) return;
 
         _selected.ApplicationPath = entry.Path;
@@ -426,6 +443,16 @@ public partial class MainWindow : Window
     private void Rules_Click(object sender, RoutedEventArgs e)
     {
         if (_selected is null) return;
+
+        if (_selected.IsFallback)
+        {
+            AppDialog.ShowInfo(
+                "Основной профиль срабатывает там, где нет более точного совпадения,\n" +
+                "поэтому его правила не используются.\n\n" +
+                "Создайте отдельный профиль и выберите для него приложение.",
+                "Правила профиля");
+            return;
+        }
 
         var dialog = new RulesDialog(_selected) { Owner = this };
         if (dialog.ShowDialog() != true || !dialog.Saved) return;
@@ -518,7 +545,7 @@ public partial class MainWindow : Window
             _selected.Bindings.Add(binding);
         }
 
-        binding.Trigger = result.Trigger;
+        binding.Trigger = row.IsButton ? MouseButtonMap.TriggerFor(row.Button) : result.Trigger;
         binding.Label = result.Label;
         binding.Action = result.Action;
         binding.Enabled = true;

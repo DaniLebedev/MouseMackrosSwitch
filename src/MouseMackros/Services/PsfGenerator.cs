@@ -116,11 +116,20 @@ public static class PsfGenerator
             if (button.Letter is not char letter) continue;
 
             SetValue(lines, $"Key{button.KeyIndex}Name", "MM:" + letter);
+            SetValue(lines, $"Key{button.KeyIndex}URL", "");
             SetValue(lines, $"Key{button.KeyIndex}Value", EncodeLetterTrigger(letter));
             SetValue(lines, $"MacroKey{button.KeyIndex}Name", "");
 
             var combo = "Ctrl+Alt+Shift+" + letter;
             triggers[button.Number] = combo;
+        }
+
+        // The vendor writes MacroKeyIndex once per button. Stock profiles may
+        // point some buttons at macro slots, which must not win over our keys.
+        var macroIndex = new Regex(@"^(\s*)MacroKeyIndex\s*=.*$", RegexOptions.IgnoreCase);
+        for (int i = 0; i < lines.Count; i++)
+        {
+            if (macroIndex.IsMatch(lines[i])) lines[i] = macroIndex.Replace(lines[i], "${1}MacroKeyIndex=0");
         }
 
         var directory = Path.GetDirectoryName(Path.GetFullPath(targetPath));

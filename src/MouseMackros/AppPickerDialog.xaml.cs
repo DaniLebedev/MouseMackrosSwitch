@@ -88,11 +88,49 @@ public partial class AppPickerDialog : Window
         {
             _loadingInstalled = true;
             ApplyFilter();
-            _installed = await Task.Run(AppCatalog.Installed);
-            _loadingInstalled = false;
+            try
+            {
+                _installed = await LoadInstalledAsync();
+            }
+            catch (Exception ex)
+            {
+                ProfileStore.Log("Каталог установленных программ: " + ex.Message);
+                _installed = new List<AppEntry>();
+            }
+            finally
+            {
+                _loadingInstalled = false;
+            }
         }
 
         ApplyFilter();
+    }
+
+    /// <summary>
+    /// Start Menu shortcuts are resolved through WScript.Shell, which wants an
+    /// STA thread. Building icons there is fine because they are frozen.
+    /// </summary>
+    private static Task<List<AppEntry>> LoadInstalledAsync()
+    {
+        var completion = new TaskCompletionSource<List<AppEntry>>();
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                completion.SetResult(AppCatalog.Installed());
+            }
+            catch (Exception ex)
+            {
+                completion.SetException(ex);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "MouseMackros app catalog"
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return completion.Task;
     }
 
     private void AppList_SelectionChanged(object sender, SelectionChangedEventArgs e) =>

@@ -263,7 +263,7 @@
                                         <ColumnDefinition Width="8" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Button Style="{StaticResource GhostButton}" Content="Правила…"
+                                    <Button x:Name="RulesButton" Style="{StaticResource GhostButton}" Content="Правила…"
                                             Click="Rules_Click" Padding="8,5" ToolTip="Заголовок, класс, приоритет" />
                                     <Button Grid.Column="2" Style="{StaticResource GhostButton}" Content="Раскладка .psf…"
                                             Click="LoadPsf_Click" Padding="8,5"

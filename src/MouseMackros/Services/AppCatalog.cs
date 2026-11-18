@@ -132,6 +132,7 @@ public static class AppCatalog
 
     public static List<AppEntry> Installed()
     {
+        var stopwatch = Stopwatch.StartNew();
         var result = new List<AppEntry>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -139,10 +140,17 @@ public static class AppCatalog
         {
             if (!Directory.Exists(directory)) continue;
 
-            IEnumerable<string> files;
+            List<string> files;
             try
             {
-                files = Directory.EnumerateFiles(directory, "*.lnk", SearchOption.AllDirectories);
+                // IgnoreInaccessible: some Start Menu subfolders are ACL-protected,
+                // and one of them must not hide the whole catalog.
+                files = Directory.EnumerateFiles(directory, "*.lnk", new EnumerationOptions
+                {
+                    RecurseSubdirectories = true,
+                    IgnoreInaccessible = true,
+                    AttributesToSkip = FileAttributes.ReparsePoint
+                }).ToList();
             }
             catch
             {
@@ -153,17 +161,29 @@ public static class AppCatalog
             {
                 try
                 {
+                    var linkName = Path.GetFileNameWithoutExtension(link);
+                    if (IsNotApplicationLink(linkName)) continue;
+
                     var target = ResolveShortcut(link);
                     if (string.IsNullOrWhiteSpace(target)) continue;
                     if (!target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
                     if (!File.Exists(target)) continue;
                     if (target.Contains(@"\WindowsApps\", StringComparison.OrdinalIgnoreCase)) continue;
                     if (target.Contains(@"\Uninstall", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (target.Contains(@"\Windows\Installer\", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    var fileName = Path.GetFileName(target);
+                    if (fileName.StartsWith("unins", StringComparison.OrdinalIgnoreCase) ||
+                        fileName.Contains("uninstall", StringComparison.OrdinalIgnoreCase) ||
+                        fileName.Contains("uninst", StringComparison.OrdinalIgnoreCase) ||
+                        fileName.Equals("msiexec.exe", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
                     if (!seen.Add(target)) continue;
 
                     result.Add(new AppEntry
                     {
-                        Name = Path.GetFileNameWithoutExtension(link),
+                        Name = linkName,
                         Path = target,
                         Subtitle = target,
                         ProcessName = Path.GetFileNameWithoutExtension(target),
@@ -177,15 +197,30 @@ public static class AppCatalog
             }
         }
 
-        return result
+        var ordered = result
             .OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+
+        ProfileStore.Log($"Каталог программ: {ordered.Count} шт. за {stopwatch.ElapsedMilliseconds} мс");
+        return ordered;
     }
 
     private static IEnumerable<string> StartMenuDirectories()
     {
         yield return Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu);
         yield return Environment.GetFolderPath(Environment.SpecialFolder.StartMenu);
+    }
+
+    private static bool IsNotApplicationLink(string name)
+    {
+        var lower = name.ToLowerInvariant();
+        if (name.EndsWith("...") || name.EndsWith('…')) return true;
+
+        return lower.StartsWith("деинсталлировать") || lower.StartsWith("деинсталляция")
+               || lower.StartsWith("удалить") || lower.StartsWith("удаление")
+               || lower.StartsWith("uninstall") || lower.StartsWith("remove")
+               || lower.Contains("readme") || lower.Contains("справка")
+               || lower.Contains("документация");
     }
 
     private static string? ResolveShortcut(string link)
