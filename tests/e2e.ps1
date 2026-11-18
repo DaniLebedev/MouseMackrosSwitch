@@ -66,7 +66,7 @@ $json = @'
       "IsFallback": true,
       "Bindings": [
         {
-          "Trigger": "key:Ctrl+Alt+F12",
+          "Trigger": "key:Ctrl+Alt+Shift+F12",
           "Label": "key test",
           "Enabled": true,
           "Action": {
@@ -100,10 +100,13 @@ function Send-Combo {
     Start-Sleep -Milliseconds 40
     [E2EInput]::Key(0x12, $true)   # Alt
     Start-Sleep -Milliseconds 40
+    [E2EInput]::Key(0x10, $true)   # Shift
+    Start-Sleep -Milliseconds 40
     [E2EInput]::Key(0x7B, $true)   # F12
     Start-Sleep -Milliseconds 40
     [E2EInput]::Key(0x7B, $false)
     Start-Sleep -Milliseconds 40
+    [E2EInput]::Key(0x10, $false)
     [E2EInput]::Key(0x12, $false)
     [E2EInput]::Key(0x11, $false)
 }
@@ -117,7 +120,7 @@ try {
     if ($proc) { Write-Host ("Процесс работает, PID " + ($proc.Id -join ', ')) }
     else { Write-Host 'ПРОЦЕСС НЕ ЗАПУЩЕН' }
 
-    Write-Host 'Отправка Ctrl+Alt+F12 ...'
+    Write-Host 'Отправка Ctrl+Alt+Shift+F12 ...'
     Send-Combo
     Start-Sleep -Milliseconds 500
 
@@ -131,7 +134,7 @@ try {
     $mouseOk = Test-Path $mouseMarker
 
     Write-Host ''
-    Write-Host ("Клавиатурный триггер (Ctrl+Alt+F12): " + $(if ($keyOk) { 'OK' } else { 'FAIL' }))
+    Write-Host ("Клавиатурный триггер (Ctrl+Alt+Shift+F12): " + $(if ($keyOk) { 'OK' } else { 'FAIL' }))
     Write-Host ("Мышиный триггер (X1):              " + $(if ($mouseOk) { 'OK' } else { 'FAIL' }))
     if ($keyOk) { Write-Host ("  файл: " + (Get-Content $keyMarker -Raw).Trim()) }
     if ($mouseOk) { Write-Host ("  файл: " + (Get-Content $mouseMarker -Raw).Trim()) }
