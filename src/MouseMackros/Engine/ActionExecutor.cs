@@ -65,6 +65,20 @@ public static class MacroScript
                         steps.Add(new MacroStep(command + "mouse", button, 0, 0, 0, null));
                         break;
                     }
+                    // A bare modifier ("down Shift") is a valid command on its own.
+                    var bareModifier = argument.ToLowerInvariant() switch
+                    {
+                        "ctrl" or "control" => NativeMethods.VK_CONTROL,
+                        "shift" => NativeMethods.VK_SHIFT,
+                        "alt" => NativeMethods.VK_MENU,
+                        "win" or "super" or "meta" => NativeMethods.VK_LWIN,
+                        _ => 0
+                    };
+                    if (bareModifier != 0)
+                    {
+                        steps.Add(new MacroStep(command, bareModifier.ToString(), 0, 0, 0, null));
+                        break;
+                    }
                     if (!KeyNames.TryParseCombo(argument, out var mods, out var key)) continue;
                     int m1 = 0, m2 = 0;
                     if (mods.Count > 0) m1 = mods[0];

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Threading;
 using MouseMackros.Engine;
 using MouseMackros.Model;
@@ -33,6 +34,11 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Some Intel / virtual GPU drivers leave WPF windows blank. The UI is
+        // lightweight, so software rendering is a safe default.
+        RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+
         SilentStart = e.Args.Any(a => a.Equals("--silent", StringComparison.OrdinalIgnoreCase));
 
         _mutex = new Mutex(true, @"Local\MouseMackros_SingleInstance", out bool isFirst);

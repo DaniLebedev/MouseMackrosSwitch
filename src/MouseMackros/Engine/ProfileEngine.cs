@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using MouseMackros.Input;
 using MouseMackros.Interop;
 using MouseMackros.Model;
-using MouseMackros.Services;
 
 namespace MouseMackros.Engine;
 
@@ -197,8 +196,6 @@ public sealed class ProfileEngine : IDisposable
 
     private void OnKey(object? sender, KeyInputEventArgs e)
     {
-        if (e.IsInjected) return;
-
         var trigger = Trigger.Key(e.Combo);
         var key = trigger.ToString();
 
@@ -247,8 +244,6 @@ public sealed class ProfileEngine : IDisposable
 
     private void OnMouse(object? sender, MouseInputEventArgs e)
     {
-        if (e.IsInjected) return;
-
         var key = e.Trigger.ToString();
         if (LearnMode)
         {

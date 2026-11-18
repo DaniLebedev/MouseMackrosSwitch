@@ -85,7 +85,7 @@ public sealed class KeyboardHook : IDisposable
                     else _heldModifiers.Remove(normalized);
                 }
 
-                var combo = Interop.KeyNames.FormatCombo(mods, vk);
+                var combo = Interop.KeyNames.FormatNormalized(mods, vk);
                 var args = new KeyInputEventArgs
                 {
                     Vk = vk,

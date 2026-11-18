@@ -75,7 +75,16 @@ public static class PsfGenerator
     public static GeneratedProfile? Generate(string? outputDirectory = null, string profileName = "MouseMackros")
     {
         var templatePath = FindTemplate();
-        if (templatePath is null || !File.Exists(templatePath)) return null;
+        var targetDir = outputDirectory ?? FindVendorConfigDir();
+        if (templatePath is null || targetDir is null) return null;
+        return WriteProfile(templatePath, Path.Combine(targetDir, "MouseMackros.psf"), profileName);
+    }
+
+    /// <summary>Builds a profile from an existing .psf template and saves it to <paramref name="targetPath"/>.</summary>
+    public static GeneratedProfile? WriteProfile(string templatePath, string targetPath,
+        string profileName = "MouseMackros")
+    {
+        if (!File.Exists(templatePath)) return null;
 
         var encoding = new UnicodeEncoding(false, true);
         var text = File.ReadAllText(templatePath, Encoding.Unicode);
@@ -97,22 +106,19 @@ public static class PsfGenerator
         {
             int keyIndex = i + 3;
             char letter = letters[i][0];
-            var value = EncodeLetterTrigger(letter);
             SetValue(lines, $"Key{keyIndex}Name", "MM:" + letter);
-            SetValue(lines, $"Key{keyIndex}Value", value);
+            SetValue(lines, $"Key{keyIndex}Value", EncodeLetterTrigger(letter));
             SetValue(lines, $"MacroKey{keyIndex}Name", "");
             triggers[keyIndex] = $"Ctrl+Alt+Shift+{letter}";
         }
 
-        var targetDir = outputDirectory ?? FindVendorConfigDir();
-        if (targetDir is null) return null;
-        Directory.CreateDirectory(targetDir);
-        var target = Path.Combine(targetDir, "MouseMackros.psf");
+        var directory = Path.GetDirectoryName(Path.GetFullPath(targetPath));
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
         var content = string.Join("\r\n", lines);
-        File.WriteAllText(target, content, encoding);
+        File.WriteAllText(targetPath, content, encoding);
 
-        return new GeneratedProfile(target, profileName, triggers);
+        return new GeneratedProfile(targetPath, profileName, triggers);
     }
 
     private static void SetValue(List<string> lines, string key, string value)
@@ -120,9 +126,10 @@ public static class PsfGenerator
         var pattern = new Regex(@"^(\s*" + Regex.Escape(key) + @"\s*=).*$", RegexOptions.IgnoreCase);
         for (int i = 0; i < lines.Count; i++)
         {
-            if (pattern.IsMatch(lines[i]))
+            var match = pattern.Match(lines[i]);
+            if (match.Success)
             {
-                lines[i] = key + "=" + value;
+                lines[i] = match.Groups[1].Value + value;
                 return;
             }
         }

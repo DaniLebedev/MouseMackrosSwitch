@@ -120,11 +120,11 @@
                             <Grid Margin="2,8,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="86" />
+                                    <ColumnDefinition Width="112" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Пауза" VerticalAlignment="Center" />
-                                <TextBox x:Name="HotkeyBox" Grid.Column="1" IsReadOnly="True"
-                                         PreviewKeyDown="HotkeyBox_PreviewKeyDown" ToolTip="Нажмите новое сочетание" />
+                                <TextBox x:Name="HotkeyBox" Grid.Column="1" IsReadOnly="True" FontSize="11.5"
+                                         Padding="6,6" PreviewKeyDown="HotkeyBox_PreviewKeyDown" ToolTip="Нажмите новое сочетание" />
                             </Grid>
                             <Button x:Name="PsfButton" Style="{StaticResource FlatButton}" Margin="0,10,0,0"
                                     Click="PsfButton_Click" HorizontalContentAlignment="Left"

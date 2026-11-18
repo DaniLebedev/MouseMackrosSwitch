@@ -112,10 +112,15 @@ public static class KeyNames
     public static string NormalizeCombo(string text) =>
         TryParseCombo(text, out var mods, out var key) ? FormatCombo(mods, key) : text.Trim();
 
-    public static string FormatCombo(IEnumerable<int> modifiers, int key)
+    /// <summary>Formats a combination from virtual-key codes, e.g. [0x11, 0x12], 0x7B.</summary>
+    public static string FormatCombo(IEnumerable<int> modifiers, int key) =>
+        FormatNormalized(modifiers.Select(NormalizeModifier), key);
+
+    /// <summary>Formats a combination from normalized modifiers (0 = Ctrl, 1 = Shift, 2 = Alt, 3 = Win).</summary>
+    public static string FormatNormalized(IEnumerable<int> modifiers, int key)
     {
         var sb = new StringBuilder();
-        var set = modifiers.Select(NormalizeModifier).Distinct().OrderBy(m => m).ToList();
+        var set = modifiers.Distinct().OrderBy(m => m).ToList();
         foreach (var m in set)
         {
             sb.Append(m switch
