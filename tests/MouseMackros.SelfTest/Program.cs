@@ -117,6 +117,13 @@ Check("макрос: колесо", steps[3].Kind == "wheel" && steps[3].Number 
 Check("макрос: комбинация разобрана", steps[0].Kind == "press" && steps[0].Modifiers1 == 0x11);
 Check("макрос: мусор игнорируется", steps.All(s => s.Kind != "press" || s.Key != "0"));
 
+var tabMacro = MacroScript.Parse("down Ctrl\ndown Shift\ndown Tab\nup Tab\nup Shift\nup Ctrl");
+Check("макрос вкладок: 6 шагов", tabMacro.Count == 6, tabMacro.Count.ToString());
+Check("макрос вкладок: Ctrl зажат",
+    tabMacro[0].Kind == "down" && tabMacro[0].Key == "17", tabMacro[0].Key);
+Check("макрос вкладок: Tab отпущен",
+    tabMacro[3].Kind == "up" && tabMacro[3].Key == "9", tabMacro[3].Key);
+
 // ---------------------------------------------------------------- psf
 Check("кодирование A", PsfGenerator.EncodeLetterTrigger('A') == "700704",
     PsfGenerator.EncodeLetterTrigger('A'));

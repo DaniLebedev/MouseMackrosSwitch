@@ -55,6 +55,8 @@ public partial class MainWindow : Window
 
         ReloadFromConfig();
         UpdateStatus();
+        RefreshVendorStatus();
+        Activated += (_, _) => RefreshVendorStatus();
         Loaded += (_, _) => UpdateStatus();
     }
 
@@ -174,6 +176,24 @@ public partial class MainWindow : Window
         }
 
         BuildRows();
+    }
+
+    private void RefreshVendorStatus()
+    {
+        var status = VendorSetup.Detect();
+        if (status is null || status.UsesNeutralLayout)
+        {
+            VendorBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        VendorBanner.Visibility = Visibility.Visible;
+        VendorStatusText.Text = status.Known
+            ? $"На мыши профиль «{status.ProfileName}». Для переключения по окнам нужен MouseMackros.psf."
+            : "Не удалось определить раскладку мыши. Примените MouseMackros.psf в MBF1000PRO.";
+        VendorStatusText.ToolTip = string.IsNullOrWhiteSpace(status.ActivePath)
+            ? null
+            : status.ActivePath;
     }
 
     private void RefreshApps()
@@ -658,6 +678,8 @@ public partial class MainWindow : Window
                 UseShellExecute = true
             });
         }
+
+        RefreshVendorStatus();
     }
 
     private void LoadPsf_Click(object sender, RoutedEventArgs e)

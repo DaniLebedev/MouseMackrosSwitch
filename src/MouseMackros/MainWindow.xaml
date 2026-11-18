@@ -264,7 +264,7 @@
                                 </ItemsControl>
                                 <TextBlock x:Name="NoAppsText" Style="{StaticResource MutedText}" FontSize="11.5"
                                            Margin="2,2,0,0" Text="Приложение не выбрано" />
-                                <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                                <WrapPanel Margin="0,9,0,0">
                                     <Border Style="{StaticResource Chip}">
                                         <TextBlock x:Name="RulesChipText" Style="{StaticResource ChipText}" />
                                     </Border>
@@ -275,7 +275,24 @@
                                         <TextBlock Text="основной профиль" Style="{StaticResource ChipText}"
                                                    Foreground="#7FB2FF" />
                                     </Border>
-                                </StackPanel>
+                                </WrapPanel>
+                                <Border x:Name="VendorBanner" Background="#2A2318" BorderBrush="#5A4420"
+                                        BorderThickness="1" CornerRadius="7" Padding="8,5" Margin="0,2,0,0"
+                                        Visibility="Collapsed">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="VendorStatusText" FontSize="11" Foreground="#F2A33C"
+                                                   VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button x:Name="VendorFixButton" Grid.Column="1"
+                                                Style="{StaticResource GhostButton}"
+                                                Content="исправить" Padding="2,0" Margin="7,0,0,0"
+                                                FontSize="11" Foreground="#7FB2FF" Click="GeneratePsf_Click"
+                                                VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
