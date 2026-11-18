@@ -109,7 +109,10 @@ public sealed class Profile
     public string Name { get; set; } = "Новый профиль";
     public string Accent { get; set; } = "#4C9AFF";
 
-    /// <summary>Full path to the .exe this profile is attached to, when picked in the UI.</summary>
+    /// <summary>Full paths to the .exe files this profile is attached to.</summary>
+    public List<string> Applications { get; set; } = new();
+
+    /// <summary>Primary application kept for older files; mirrors <see cref="Applications"/>.</summary>
     public string? ApplicationPath { get; set; }
 
     /// <summary>Optional .psf file with the mouse layout this profile expects.</summary>
@@ -120,14 +123,32 @@ public sealed class Profile
 
     public bool IsFallback { get; set; }
 
+    /// <summary>All attached applications, including the legacy single path.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<string> AllApplications
+    {
+        get
+        {
+            var list = new List<string>();
+            foreach (var app in Applications)
+                if (!string.IsNullOrWhiteSpace(app) && !list.Contains(app, StringComparer.OrdinalIgnoreCase))
+                    list.Add(app);
+
+            if (list.Count == 0 && !string.IsNullOrWhiteSpace(ApplicationPath))
+                list.Add(ApplicationPath);
+
+            return list;
+        }
+    }
+
     /// <summary>Short application name for the UI, e.g. "chrome" or "без приложения".</summary>
     [JsonIgnore]
     public string ApplicationName
     {
         get
         {
-            if (!string.IsNullOrWhiteSpace(ApplicationPath))
-                return Path.GetFileNameWithoutExtension(ApplicationPath);
+            var app = AllApplications.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(app)) return Path.GetFileNameWithoutExtension(app);
             return Match.Processes.FirstOrDefault() ?? "без приложения";
         }
     }
@@ -144,6 +165,7 @@ public sealed class Profile
         Name = Name,
         Accent = Accent,
         IsFallback = false,
+        Applications = Applications.ToList(),
         ApplicationPath = ApplicationPath,
         VendorProfilePath = VendorProfilePath,
         Match = new MatchRules

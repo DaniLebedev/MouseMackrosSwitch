@@ -31,7 +31,6 @@ public partial class MainWindow : Window
 
     private Profile? _selected;
     private bool _suppress;
-    private bool _showAllButtons;
 
     public MainWindow(App app)
     {
@@ -97,7 +96,7 @@ public partial class MainWindow : Window
                     Subtitle = DescribeRules(profile),
                     Accent = AccentBrush(profile.Accent),
                     Initial = InitialOf(profile.Name),
-                    Icon = AppCatalog.IconFor(profile.ApplicationPath),
+                    Icon = AppCatalog.IconFor(profile.AllApplications.FirstOrDefault()),
                     ActiveVisibility = ReferenceEquals(profile, _app.Engine.ActiveProfile)
                         ? Visibility.Visible
                         : Visibility.Collapsed
@@ -118,13 +117,16 @@ public partial class MainWindow : Window
 
     private static string DescribeRules(Profile profile)
     {
-        if (profile.IsFallback)
-            return string.IsNullOrWhiteSpace(profile.ApplicationPath)
-                ? "работает во всех окнах"
-                : profile.ApplicationName;
+        var apps = profile.AllApplications;
+        if (apps.Count > 1)
+            return $"{apps.Count} прил.: " + string.Join(", ", apps.Take(2).Select(Path.GetFileNameWithoutExtension)) +
+                   (apps.Count > 2 ? "…" : "");
 
-        if (!string.IsNullOrWhiteSpace(profile.ApplicationPath))
-            return Path.GetFileName(profile.ApplicationPath);
+        if (profile.IsFallback)
+            return "работает во всех окнах";
+
+        if (apps.Count == 1)
+            return Path.GetFileName(apps[0]);
 
         var parts = new List<string>();
         if (profile.Match.Processes.Count > 0)
@@ -146,32 +148,25 @@ public partial class MainWindow : Window
         try
         {
             ProfileNameBox.Text = _selected.Name;
-            AppNameText.Text = string.IsNullOrWhiteSpace(_selected.ApplicationPath)
-                ? (_selected.IsFallback
-                    ? "Все приложения"
-                    : _selected.Match.Processes.Count > 0
-                        ? "Правила: " + string.Join(", ", _selected.Match.Processes.Take(2)) +
-                          (_selected.Match.Processes.Count > 2 ? "…" : "")
-                        : "Приложение не выбрано")
-                : _selected.Name;
-            AppPathText.Text = _selected.ApplicationPath
-                ?? (_selected.IsFallback ? "профиль по умолчанию" : DescribeRules(_selected));
-
             HeaderInitial.Text = InitialOf(_selected.Name);
-            HeaderIcon.Source = AppCatalog.IconFor(_selected.ApplicationPath);
+            HeaderIcon.Source = AppCatalog.IconFor(_selected.AllApplications.FirstOrDefault());
+
+            RefreshApps();
 
             RulesChipText.Text = DescribeRulesChip(_selected);
             RulesChipText.ToolTip = DescribeRulesChip(_selected);
 
             var psf = _selected.VendorProfilePath;
             PsfChipText.Text = string.IsNullOrWhiteSpace(psf)
-                ? "раскладка .psf не выбрана"
+                ? "раскладка .psf не загружена"
                 : "psf: " + Path.GetFileName(psf);
             PsfChipText.ToolTip = psf ?? "Файл раскладки MBF1000PRO";
+            PsfSourceText.Text = string.IsNullOrWhiteSpace(psf)
+                ? ""
+                : "источник: " + Path.GetFileName(psf);
 
             FallbackChip.Visibility = _selected.IsFallback ? Visibility.Visible : Visibility.Collapsed;
             RulesButton.IsEnabled = !_selected.IsFallback;
-            ShowAllToggle.IsChecked = _showAllButtons;
         }
         finally
         {
@@ -179,6 +174,29 @@ public partial class MainWindow : Window
         }
 
         BuildRows();
+    }
+
+    private void RefreshApps()
+    {
+        if (_selected is null) return;
+
+        var rows = _selected.IsFallback
+            ? new List<AppChipRow>()
+            : _selected.AllApplications
+                .Select(app => new AppChipRow
+                {
+                    Path = app,
+                    Name = Path.GetFileNameWithoutExtension(app)
+                })
+                .ToList();
+
+        AppsList.ItemsSource = rows;
+        AppsList.Visibility = rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        NoAppsText.Visibility = rows.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+        NoAppsText.Text = _selected.IsFallback
+            ? "Профиль работает во всех окнах"
+            : "Приложение не выбрано — профиль не включится";
     }
 
     private static string DescribeRulesChip(Profile profile)
@@ -210,26 +228,22 @@ public partial class MainWindow : Window
         foreach (var info in MouseButtonMap.Editable)
         {
             var binding = _selected.Bindings.FirstOrDefault(b => b.Button == info.Number && b.Enabled);
-            if (binding is not null) assigned++;
-            else if (!_showAllButtons) continue;
+            if (binding is null) continue;
 
+            assigned++;
             _buttonRows.Add(new ButtonRow
             {
                 Model = binding,
                 IsButton = true,
                 Button = info.Number,
                 NumberText = info.Number.ToString(),
-                Title = string.IsNullOrWhiteSpace(binding?.Label) ? info.Name : binding!.Label!,
-                TriggerText = binding is null
-                    ? $"Ctrl+Alt+Shift+{info.Letter} · не назначено"
-                    : $"Кнопка {info.Number} · {Trigger.Parse(binding.Trigger).DisplayName}",
-                ActionSummary = binding is null ? "Без действия" : DescribeAction(binding.Action),
-                ActionDetail = binding is null
-                    ? "Нажмите «Изменить», чтобы назначить действие"
-                    : DescribeActionDetail(binding.Action),
+                Title = string.IsNullOrWhiteSpace(binding.Label) ? info.Name : binding.Label!,
+                TriggerText = $"Кнопка {info.Number} · {Trigger.Parse(binding.Trigger).DisplayName}",
+                ActionSummary = DescribeAction(binding.Action),
+                ActionDetail = DescribeActionDetail(binding.Action),
                 Accent = accent,
                 AccentBackground = tint,
-                AssignedVisibility = binding is null ? Visibility.Collapsed : Visibility.Visible
+                AssignedVisibility = Visibility.Visible
             });
         }
 
@@ -251,8 +265,18 @@ public partial class MainWindow : Window
             });
         }
 
-        BindingCountText.Text = $"{assigned} из {MouseButtonMap.Editable.Count()}";
+        BindingCountText.Text = assigned == 0 ? "нет действий" : $"{assigned} из {MouseButtonMap.Editable.Count()}";
         EmptyState.Visibility = assigned == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        if (assigned == 0)
+        {
+            var hasPsf = !string.IsNullOrWhiteSpace(_selected.VendorProfilePath);
+            EmptyTitle.Text = hasPsf ? "В .psf нет действий для кнопок" : "Раскладка .psf не загружена";
+            EmptyHint.Text = hasPsf
+                ? "Все кнопки в этом файле выключены (Disable). Выберите другой .psf."
+                : "Загрузите .psf из MBF1000PRO — действия кнопок появятся здесь автоматически.";
+        }
+
         OtherSection.Visibility = _otherRows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -299,12 +323,8 @@ public partial class MainWindow : Window
         OpenMenu(menu, (FrameworkElement)sender);
     }
 
-    private void EditMenuButton_Click(object sender, RoutedEventArgs e)
-    {
-        var menu = Menu("EditMenu");
-        MenuItemAt(menu, 2).IsChecked = _showAllButtons;
-        OpenMenu(menu, (FrameworkElement)sender);
-    }
+    private void EditMenuButton_Click(object sender, RoutedEventArgs e) =>
+        OpenMenu(Menu("EditMenu"), (FrameworkElement)sender);
 
     private void HelpMenuButton_Click(object sender, RoutedEventArgs e) =>
         OpenMenu(Menu("HelpMenu"), (FrameworkElement)sender);
@@ -377,7 +397,7 @@ public partial class MainWindow : Window
     private void NewProfile_Click(object sender, RoutedEventArgs e)
     {
         CreateProfile();
-        ChooseApp_Click(sender, e);
+        AddApp_Click(sender, e);
     }
 
     private Profile CreateProfile()
@@ -411,14 +431,14 @@ public partial class MainWindow : Window
         ScheduleSave();
     }
 
-    private void ChooseApp_Click(object sender, RoutedEventArgs e)
+    private void AddApp_Click(object sender, RoutedEventArgs e)
     {
         if (_selected is null) return;
 
         if (_selected.IsFallback)
         {
             if (!AppDialog.Confirm(
-                    "Основной профиль работает во всех окнах, поэтому привязать его к одному приложению нельзя.\n\n" +
+                    "Основной профиль работает во всех окнах, поэтому привязать его к приложению нельзя.\n\n" +
                     "Создать отдельный профиль для приложения?",
                     "Основной профиль"))
                 return;
@@ -426,18 +446,55 @@ public partial class MainWindow : Window
             CreateProfile();
         }
 
-        var entry = AppPickerDialog.Pick(this, _selected!.ApplicationPath);
+        var entry = AppPickerDialog.Pick(this);
         if (entry is null) return;
 
-        _selected.ApplicationPath = entry.Path;
-        _selected.Match.Processes = new List<string> { entry.ProcessName };
+        var path = string.IsNullOrWhiteSpace(entry.Path) ? entry.ProcessName : entry.Path;
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        if (_selected.AllApplications.Any(a => string.Equals(a, path, StringComparison.OrdinalIgnoreCase)))
+        {
+            LastInputText.Text = "Это приложение уже добавлено в профиль";
+            return;
+        }
+
+        _selected.Applications.Add(path);
+        _selected.ApplicationPath ??= path;
+
+        var process = string.IsNullOrWhiteSpace(entry.ProcessName)
+            ? Path.GetFileNameWithoutExtension(path)
+            : entry.ProcessName;
+        if (!string.IsNullOrWhiteSpace(process) &&
+            !_selected.Match.Processes.Contains(process, StringComparer.OrdinalIgnoreCase))
+        {
+            _selected.Match.Processes.Add(process);
+        }
 
         if (string.IsNullOrWhiteSpace(_selected.Name) || _selected.Name == "Новый профиль")
             _selected.Name = entry.Name;
 
         Commit();
         Keyboard.ClearFocus();
-        LastInputText.Text = "Профиль привязан к " + entry.Name;
+        LastInputText.Text = "Добавлено приложение: " + entry.Name;
+    }
+
+    private void RemoveApp_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null || sender is not FrameworkElement { DataContext: AppChipRow row }) return;
+
+        _selected.Applications.RemoveAll(a => string.Equals(a, row.Path, StringComparison.OrdinalIgnoreCase));
+        _selected.ApplicationPath = _selected.Applications.FirstOrDefault();
+
+        var process = Path.GetFileNameWithoutExtension(row.Path);
+        if (!string.IsNullOrWhiteSpace(process) &&
+            !_selected.AllApplications.Any(a =>
+                string.Equals(Path.GetFileNameWithoutExtension(a), process, StringComparison.OrdinalIgnoreCase)))
+        {
+            _selected.Match.Processes.RemoveAll(p => string.Equals(p, process, StringComparison.OrdinalIgnoreCase));
+        }
+
+        Commit();
+        LastInputText.Text = "Приложение убрано из профиля";
     }
 
     private void Rules_Click(object sender, RoutedEventArgs e)
@@ -488,70 +545,18 @@ public partial class MainWindow : Window
     private ButtonRow? RowOf(object sender) =>
         sender is FrameworkElement { DataContext: ButtonRow row } ? row : null;
 
-    private void EditButton_Click(object sender, RoutedEventArgs e)
+    private void Label_Click(object sender, RoutedEventArgs e)
     {
-        if (_selected is null) return;
         var row = RowOf(sender);
-        if (row is null) return;
+        if (row?.Model is null) return;
 
-        var trigger = row.Model?.Trigger
-                      ?? (row.IsButton ? MouseButtonMap.TriggerFor(row.Button) : "");
-        if (string.IsNullOrWhiteSpace(trigger)) return;
+        var text = AnnotationDialog.Edit(this, "Подпись кнопки",
+            "Понятная пометка, чтобы помнить, что делает кнопка.", row.Model.Label ?? "");
+        if (text is null) return;
 
-        var action = row.Model?.Action.Clone() ?? new ActionSpec { Kind = ActionKind.Keys, Value = "" };
-        var title = row.IsButton ? $"Кнопка {row.Button}" : "Действие";
-
-        var result = BindingDialog.Edit(this, _app, trigger, row.Model?.Label ?? "", action,
-            row.Model is null ? "Назначить действие" : "Изменить действие");
-        if (result is null) return;
-
-        UpsertBinding(row, result);
-    }
-
-    private void CaptureBinding_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selected is null) return;
-
-        var trigger = TriggerLearnDialog.Capture(this, _app.Engine, _selected);
-        if (trigger is null) return;
-
-        var key = trigger.ToString();
-        int button = MouseButtonMap.ButtonForTrigger(key);
-
-        Binding? existing = button > 0 ? _selected.FindButton(button) : _selected.Find(key);
-        if (existing is not null &&
-            !AppDialog.Confirm(
-                $"Для «{trigger.DisplayName}» в этом профиле уже есть действие. Заменить его?",
-                "Кнопка уже назначена"))
-            return;
-
-        var action = existing?.Action.Clone() ?? new ActionSpec { Kind = ActionKind.Keys, Value = "" };
-        var result = BindingDialog.Edit(this, _app, key, existing?.Label ?? "", action,
-            button > 0 ? $"Кнопка {button}" : "Новое действие");
-        if (result is null) return;
-
-        var row = new ButtonRow { Model = existing, IsButton = button > 0, Button = button };
-        UpsertBinding(row, result);
-    }
-
-    private void UpsertBinding(ButtonRow row, BindingEditResult result)
-    {
-        if (_selected is null) return;
-
-        var binding = row.Model;
-        if (binding is null)
-        {
-            binding = new Binding { Button = row.IsButton ? row.Button : 0 };
-            _selected.Bindings.Add(binding);
-        }
-
-        binding.Trigger = row.IsButton ? MouseButtonMap.TriggerFor(row.Button) : result.Trigger;
-        binding.Label = result.Label;
-        binding.Action = result.Action;
-        binding.Enabled = true;
-
+        row.Model.Label = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
         Commit();
-        LastInputText.Text = "Сохранено: " + (result.Label.Length > 0 ? result.Label : DescribeAction(result.Action));
+        LastInputText.Text = "Подпись сохранена";
     }
 
     private void TestBinding_Click(object sender, RoutedEventArgs e)
@@ -561,29 +566,6 @@ public partial class MainWindow : Window
 
         _app.Engine.TestAction(row.Model.Action);
         LastInputText.Text = "Тест: " + DescribeAction(row.Model.Action);
-    }
-
-    private void RemoveButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selected is null) return;
-        var row = RowOf(sender);
-        if (row?.Model is null) return;
-
-        _selected.Bindings.Remove(row.Model);
-        Commit();
-    }
-
-    private void ShowAllToggle_Click(object sender, RoutedEventArgs e)
-    {
-        _showAllButtons = ShowAllToggle.IsChecked == true;
-        BuildRows();
-    }
-
-    private void ShowAll_Click(object sender, RoutedEventArgs e)
-    {
-        _showAllButtons = !_showAllButtons;
-        ShowAllToggle.IsChecked = _showAllButtons;
-        BuildRows();
     }
 
     private void Diagnostics_Click(object sender, RoutedEventArgs e)
@@ -663,9 +645,10 @@ public partial class MainWindow : Window
             "1. Откройте MBF1000PRO Mouse.\n" +
             "2. Config → импорт профиля.\n" +
             "3. Выберите MouseMackros.psf и примените его к мыши.\n\n" +
-            "После этого кнопки 1–11, 15 и 16 будут отправлять\n" +
-            "Ctrl+Alt+Shift+A…M, а MouseMackros превратит их\n" +
-            "в действие для активного окна.\n\n" +
+            "ВАЖНО: именно этот профиль должен быть активен\n" +
+            "на мыши. Тогда каждая кнопка отправляет своё\n" +
+            "Ctrl+Alt+Shift+A…M, а MouseMackros подменяет\n" +
+            "действие в зависимости от активного окна.\n\n" +
             "Открыть папку с файлом?";
 
         if (AppDialog.Confirm(text, "Раскладка для мыши готова"))
@@ -695,29 +678,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        _selected.VendorProfilePath = dialog.FileName;
-
-        int updated = 0;
-        int mapped = 0;
-        foreach (var button in MouseButtonMap.Editable)
-        {
-            var key = psf.ForButton(button.Number);
-            if (key?.Trigger is null) continue;
-            mapped++;
-
-            var binding = _selected.FindButton(button.Number);
-            if (binding is null) continue;
-            if (!string.Equals(binding.Trigger, key.Trigger, StringComparison.OrdinalIgnoreCase))
-            {
-                binding.Trigger = key.Trigger;
-                updated++;
-            }
-        }
-
+        int count = psf.ApplyTo(_selected);
         Commit();
-        LastInputText.Text = mapped == 0
-            ? "В .psf не найдено назначений для кнопок мыши"
-            : $"Раскладка загружена: кнопок {mapped}, обновлено триггеров {updated}";
+
+        LastInputText.Text = count == 0
+            ? "В .psf все кнопки отключены (Disable)"
+            : $"Из {Path.GetFileName(dialog.FileName)} загружено действий: {count}";
+
+        // A freshly imported layout is only useful when the profile has an app.
+        if (count > 0 && _selected.AllApplications.Count == 0)
+            AddApp_Click(sender, e);
     }
 
     private void DataFolder_Click(object sender, RoutedEventArgs e) =>
@@ -741,8 +711,8 @@ public partial class MainWindow : Window
         AppDialog.ShowInfo(
             "MouseMackros " + version + "\n\n" +
             "Контекстные раскладки для мыши MBF1000PRO.\n" +
-            "Кнопки отправляют Ctrl+Alt+Shift+A…M, а программа\n" +
-            "подменяет их действиями активного профиля.\n\n" +
+            "Действия кнопок читаются из .psf профилей,\n" +
+            "а переключение идёт по активному окну.\n\n" +
             "Пауза: " + _app.Config.ToggleHotkey + "\n" +
             "Профили: " + ProfileStore.RootDir,
             "О программе");
@@ -815,11 +785,84 @@ public partial class MainWindow : Window
 
     public static string DescribeActionDetail(ActionSpec action) => action.Kind switch
     {
-        ActionKind.Macro => $"{MacroScript.Parse(action.Script).Count} шагов" +
-                            (action.Repeat > 0 ? $", повтор ×{action.Repeat}" : ""),
+        ActionKind.Macro => DescribeMacro(action.Script) +
+                            (action.Repeat > 0 ? $" · повтор ×{action.Repeat}" : ""),
         ActionKind.Run when !string.IsNullOrWhiteSpace(action.Arguments) => "аргументы: " + action.Arguments,
         ActionKind.Keys => "однократное нажатие",
         _ => ""
+    };
+
+    private static string DescribeMacro(string? script)
+    {
+        var steps = MacroScript.Parse(script);
+        if (steps.Count == 0) return "пусто";
+
+        var parts = new List<string>();
+        foreach (var step in steps.Take(12))
+        {
+            switch (step.Kind)
+            {
+                case "delay":
+                    parts.Add(step.Number + " мс");
+                    break;
+                case "text":
+                    parts.Add("текст");
+                    break;
+                case "wheel":
+                    parts.Add("колесо " + step.Key);
+                    break;
+                case "press":
+                    parts.Add(PressLabel(step));
+                    break;
+                case "down":
+                    parts.Add(KeyOf(step) + "↓");
+                    break;
+                case "up":
+                    parts.Add(KeyOf(step) + "↑");
+                    break;
+                case "pressmouse":
+                    parts.Add("клик " + MouseWord(step.Key));
+                    break;
+                case "downmouse":
+                    parts.Add(MouseWord(step.Key) + "↓");
+                    break;
+                case "upmouse":
+                    parts.Add(MouseWord(step.Key) + "↑");
+                    break;
+                default:
+                    parts.Add(step.Kind);
+                    break;
+            }
+        }
+
+        var text = string.Join(" ", parts);
+        if (steps.Count > 12) text += " …";
+        return text;
+    }
+
+    private static string PressLabel(MacroStep step)
+    {
+        var names = new List<string>();
+        if (step.Modifiers1 != 0) names.Add(KeyNames.GetName(step.Modifiers1));
+        if (step.Modifiers2 != 0) names.Add(KeyNames.GetName(step.Modifiers2));
+        names.Add(KeyOf(step));
+        return string.Join("+", names);
+    }
+
+    private static string KeyOf(MacroStep step)
+    {
+        if (step.Key is null) return "?";
+        return int.TryParse(step.Key, out var vk) ? KeyNames.GetName(vk) : step.Key;
+    }
+
+    private static string MouseWord(string? button) => button switch
+    {
+        "left" => "ЛКМ",
+        "right" => "ПКМ",
+        "middle" => "СКМ",
+        "x1" => "X1",
+        "x2" => "X2",
+        _ => button ?? "мышь"
     };
 
     private static string MacroModeName(MacroMode mode) => mode switch
@@ -853,6 +896,12 @@ public partial class MainWindow : Window
         public Brush Accent { get; init; } = Brushes.Gray;
         public ImageSource? Icon { get; init; }
         public Visibility ActiveVisibility { get; init; } = Visibility.Collapsed;
+    }
+
+    public sealed class AppChipRow
+    {
+        public string Path { get; init; } = "";
+        public string Name { get; init; } = "";
     }
 
     public sealed class ButtonRow

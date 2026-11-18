@@ -27,6 +27,15 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <Style x:Key="AppChip" TargetType="Border">
+            <Setter Property="Background" Value="#1B2029" />
+            <Setter Property="BorderBrush" Value="#2B323D" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+        </Style>
+
         <Style x:Key="MenuBarButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="FontSize" Value="12.5" />
@@ -50,7 +59,7 @@
 
         <!-- ================= profile menu ================= -->
         <ContextMenu x:Key="ProfileMenu">
-            <MenuItem Header="Выбрать приложение…" Click="ChooseApp_Click" />
+            <MenuItem Header="Добавить приложение…" Click="AddApp_Click" />
             <MenuItem Header="Правила срабатывания…" Click="Rules_Click" />
             <Separator />
             <MenuItem Header="Сделать основным" Click="MakeDefault_Click" />
@@ -59,10 +68,8 @@
 
         <!-- ================= edit menu ================= -->
         <ContextMenu x:Key="EditMenu">
-            <MenuItem Header="Назначить кнопку…" Click="CaptureBinding_Click" />
-            <Separator />
-            <MenuItem Header="Показывать все кнопки" IsCheckable="True"
-                      Click="ShowAll_Click" />
+            <MenuItem Header="Загрузить раскладку .psf…" Click="LoadPsf_Click" />
+            <MenuItem Header="Создать профиль для мыши (.psf)…" Click="GeneratePsf_Click" />
             <Separator />
             <MenuItem Header="Диагностика ввода…" Click="Diagnostics_Click" />
         </ContextMenu>
@@ -191,9 +198,11 @@
 
                         <StackPanel Grid.Row="2" Margin="4,10,4,0">
                             <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,0,0,10" />
-                            <TextBlock Text="Профиль включается автоматически, когда активно окно его приложения."
+                            <TextBlock Text="1) Примените MouseMackros.psf в MBF1000PRO."
+                                       Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" />
+                            <TextBlock Text="2) Загрузите .psf в профиль."
                                        Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap"
-                                       Margin="0,0,0,10" />
+                                       Margin="0,2,0,10" />
                             <Button Style="{StaticResource GhostButton}" Content="Настройки…"
                                     HorizontalContentAlignment="Left" Padding="6,4" Click="Settings_Click" />
                             <Button Style="{StaticResource GhostButton}" Content="Папка с профилями"
@@ -233,13 +242,28 @@
                             <StackPanel Grid.Column="1" Margin="14,0,18,0" VerticalAlignment="Center">
                                 <TextBox x:Name="ProfileNameBox" Style="{StaticResource InlineTextBox}"
                                          TextChanged="ProfileNameBox_TextChanged" ToolTip="Имя профиля" />
-                                <StackPanel Orientation="Horizontal" Margin="2,4,0,0">
-                                    <TextBlock x:Name="AppNameText" FontSize="12.5" FontWeight="SemiBold"
-                                               Foreground="#B9C2D2" />
-                                    <TextBlock Text="·" Style="{StaticResource MutedText}" Margin="7,0" />
-                                    <TextBlock x:Name="AppPathText" Style="{StaticResource MutedText}" FontSize="11.5"
-                                               TextTrimming="CharacterEllipsis" MaxWidth="520" />
-                                </StackPanel>
+                                <ItemsControl x:Name="AppsList" Margin="0,7,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource AppChip}" ToolTip="{Binding Path}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" FontSize="11.5"
+                                                               VerticalAlignment="Center" />
+                                                    <Button Style="{StaticResource GhostButton}" Content="✕"
+                                                            Padding="4,0" Margin="3,0,0,0" MinWidth="14"
+                                                            Click="RemoveApp_Click" ToolTip="Убрать приложение" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="NoAppsText" Style="{StaticResource MutedText}" FontSize="11.5"
+                                           Margin="2,2,0,0" Text="Приложение не выбрано" />
                                 <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
                                     <Border Style="{StaticResource Chip}">
                                         <TextBlock x:Name="RulesChipText" Style="{StaticResource ChipText}" />
@@ -255,8 +279,8 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                <Button Style="{StaticResource FlatButton}" Content="Выбрать приложение…"
-                                        Click="ChooseApp_Click" />
+                                <Button Style="{StaticResource FlatButton}" Content="Добавить приложение…"
+                                        Click="AddApp_Click" />
                                 <Grid Margin="0,8,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -267,7 +291,7 @@
                                             Click="Rules_Click" Padding="8,5" ToolTip="Заголовок, класс, приоритет" />
                                     <Button Grid.Column="2" Style="{StaticResource GhostButton}" Content="Раскладка .psf…"
                                             Click="LoadPsf_Click" Padding="8,5"
-                                            ToolTip="Указать фирменный .psf, из которого взяты триггеры" />
+                                            ToolTip="Прочитать действия кнопок из файла MBF1000PRO" />
                                 </Grid>
                             </StackPanel>
                         </Grid>
@@ -287,12 +311,10 @@
                                            FontSize="11" Margin="8,0,0,1" VerticalAlignment="Center" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <ToggleButton x:Name="ShowAllToggle" Style="{StaticResource ChipToggle}"
-                                              Content="Все кнопки" Click="ShowAllToggle_Click"
-                                              ToolTip="Показывать кнопки без действия" Margin="0,0,8,0" />
-                                <Button Style="{StaticResource AccentButton}" Content="+ Назначить кнопку"
-                                        Click="CaptureBinding_Click"
-                                        ToolTip="Нажмите кнопку мыши, чтобы назначить действие" />
+                                <TextBlock x:Name="PsfSourceText" Style="{StaticResource MutedText}" FontSize="11"
+                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button Style="{StaticResource GhostButton}" Content="Загрузить .psf…"
+                                        Click="LoadPsf_Click" Padding="8,4" />
                             </StackPanel>
                         </Grid>
 
@@ -342,15 +364,11 @@
                                                     <StackPanel Grid.Column="3" Orientation="Horizontal"
                                                                 VerticalAlignment="Center">
                                                         <Button Style="{StaticResource GhostButton}" Content="Тест"
-                                                                Padding="8,4" Click="TestBinding_Click"
-                                                                Visibility="{Binding AssignedVisibility}" />
-                                                        <Button Style="{StaticResource FlatButton}" Content="Изменить"
-                                                                Padding="10,4" Margin="4,0,0,0"
-                                                                Click="EditButton_Click" />
-                                                        <Button Style="{StaticResource GhostButton}" Content="✕"
+                                                                Padding="8,4" Click="TestBinding_Click" />
+                                                        <Button Style="{StaticResource GhostButton}" Content="Подпись…"
                                                                 Padding="8,4" Margin="2,0,0,0"
-                                                                Click="RemoveButton_Click" ToolTip="Убрать действие"
-                                                                Visibility="{Binding AssignedVisibility}" />
+                                                                Click="Label_Click"
+                                                                ToolTip="Понятная пометка, что делает кнопка" />
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>
@@ -362,14 +380,20 @@
                                         BorderThickness="1" CornerRadius="12" Padding="26,30" Margin="0,4,0,0"
                                         Visibility="Collapsed">
                                     <StackPanel HorizontalAlignment="Center">
-                                        <TextBlock Text="Пока ни одна кнопка не назначена" FontSize="14"
+                                        <TextBlock x:Name="EmptyTitle" Text="Раскладка .psf не загружена" FontSize="14"
                                                    FontWeight="SemiBold" HorizontalAlignment="Center" />
-                                        <TextBlock Text="Нажмите «Назначить кнопку» и нажмите нужную кнопку мыши."
+                                        <TextBlock x:Name="EmptyHint"
+                                                   Text="Загрузите .psf из MBF1000PRO — действия кнопок появятся здесь автоматически."
                                                    Style="{StaticResource MutedText}" Margin="0,7,0,0"
-                                                   HorizontalAlignment="Center" />
-                                        <Button Style="{StaticResource AccentButton}" Content="Назначить кнопку"
+                                                   HorizontalAlignment="Center" TextWrapping="Wrap"
+                                                   TextAlignment="Center" MaxWidth="520" />
+                                        <Button Style="{StaticResource AccentButton}" Content="Загрузить .psf…"
                                                 Margin="0,16,0,0" HorizontalAlignment="Center"
-                                                Click="CaptureBinding_Click" />
+                                                Click="LoadPsf_Click" />
+                                        <TextBlock Text="Для автоматического переключения мышь должна быть настроена на MouseMackros.psf (Файл → Создать профиль для мыши)."
+                                                   Style="{StaticResource MutedText}" FontSize="10.5" Margin="0,14,0,0"
+                                                   HorizontalAlignment="Center" TextWrapping="Wrap"
+                                                   TextAlignment="Center" MaxWidth="520" />
                                     </StackPanel>
                                 </Border>
 
@@ -404,11 +428,11 @@
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal"
                                                                     VerticalAlignment="Center">
-                                                            <Button Style="{StaticResource FlatButton}" Content="Изменить"
-                                                                    Padding="10,4" Click="EditButton_Click" />
-                                                            <Button Style="{StaticResource GhostButton}" Content="✕"
+                                                            <Button Style="{StaticResource GhostButton}" Content="Тест"
+                                                                    Padding="8,4" Click="TestBinding_Click" />
+                                                            <Button Style="{StaticResource GhostButton}" Content="Подпись…"
                                                                     Padding="8,4" Margin="2,0,0,0"
-                                                                    Click="RemoveButton_Click" />
+                                                                    Click="Label_Click" />
                                                         </StackPanel>
                                                     </Grid>
                                                 </Border>

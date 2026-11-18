@@ -190,12 +190,29 @@ public static class ProfileStore
 
             MouseButtonMap.NormalizeBindings(profile);
 
-            if (profile.Match.Processes.Count == 0 &&
-                !string.IsNullOrWhiteSpace(profile.ApplicationPath) &&
-                !profile.IsFallback)
+            // Older files kept a single ApplicationPath; newer ones allow many.
+            var apps = new List<string>();
+            foreach (var app in profile.Applications)
+                if (!string.IsNullOrWhiteSpace(app) && !apps.Contains(app, StringComparer.OrdinalIgnoreCase))
+                    apps.Add(app);
+
+            if (apps.Count == 0 && !string.IsNullOrWhiteSpace(profile.ApplicationPath))
+                apps.Add(profile.ApplicationPath);
+
+            profile.Applications = apps;
+            profile.ApplicationPath = apps.FirstOrDefault();
+
+            if (!profile.IsFallback)
             {
-                var process = Path.GetFileNameWithoutExtension(profile.ApplicationPath);
-                if (!string.IsNullOrWhiteSpace(process)) profile.Match.Processes.Add(process);
+                foreach (var app in apps)
+                {
+                    var process = Path.GetFileNameWithoutExtension(app);
+                    if (!string.IsNullOrWhiteSpace(process) &&
+                        !profile.Match.Processes.Contains(process, StringComparer.OrdinalIgnoreCase))
+                    {
+                        profile.Match.Processes.Add(process);
+                    }
+                }
             }
         }
 
@@ -213,6 +230,12 @@ public static class ProfileStore
             if (!ReferenceEquals(profile, fallback)) profile.IsFallback = false;
 
         config.DefaultProfileId = fallback.Id;
+
+        // Keep the list stable between starts: fallback first, then by name.
+        config.Profiles = config.Profiles
+            .OrderByDescending(p => p.IsFallback)
+            .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
     }
 
     // ------------------------------------------------------------------ save

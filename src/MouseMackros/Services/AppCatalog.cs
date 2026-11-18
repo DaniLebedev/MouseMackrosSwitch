@@ -69,27 +69,33 @@ public static class AppCatalog
                 }
                 catch
                 {
-                    // 64-bit / protected processes
+                    // 64-bit / protected / packaged processes
                 }
 
-                if (string.IsNullOrWhiteSpace(path) || !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (path.StartsWith(Environment.SystemDirectory, StringComparison.OrdinalIgnoreCase)) continue;
-                if (path.Contains(@"\WindowsApps\", StringComparison.OrdinalIgnoreCase)) continue;
                 if (string.Equals(process.ProcessName, "MouseMackros", StringComparison.OrdinalIgnoreCase)) continue;
                 if (IsBackgroundHelper(process.ProcessName)) continue;
-                if (process.MainWindowHandle == IntPtr.Zero && string.IsNullOrWhiteSpace(process.MainWindowTitle))
-                    continue;
-                if (!seen.Add(path)) continue;
 
-                var name = SafeDescription(process, path);
+                bool hasWindow = process.MainWindowHandle != IntPtr.Zero ||
+                                 !string.IsNullOrWhiteSpace(process.MainWindowTitle);
+                bool validPath = !string.IsNullOrWhiteSpace(path) &&
+                                 path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+
+                if (validPath && path!.StartsWith(Environment.SystemDirectory, StringComparison.OrdinalIgnoreCase) &&
+                    !hasWindow)
+                    continue;
+                if (!validPath && !hasWindow) continue;
+
+                var key = validPath ? path! : "process:" + process.ProcessName;
+                if (!seen.Add(key)) continue;
+
+                var name = validPath ? SafeDescription(process, path!) : process.ProcessName;
                 result.Add(new AppEntry
                 {
                     Name = name,
-                    Path = path,
-                    Subtitle = path,
+                    Path = validPath ? path! : "",
+                    Subtitle = validPath ? path! : "запущенная программа",
                     ProcessName = process.ProcessName,
-                    Icon = IconFor(path)
+                    Icon = validPath ? IconFor(path!) : null
                 });
             }
             catch
@@ -111,12 +117,17 @@ public static class AppCatalog
     {
         var name = processName.ToLowerInvariant();
         return name.Contains("crash") || name.Contains("helper") || name.Contains("service")
-               || name is "gameinput" or "werfault" or "runtimebroker" or "dllhost" or "conhost"
+               || name.Contains("gameinput")
+               || name is "werfault" or "runtimebroker" or "dllhost" or "conhost"
+                   or "svchost" or "sihost" or "taskhostw" or "ctfmon"
                    or "searchhost" or "shellexperiencehost" or "textinputhost" or "video.ui"
-                   or "msmpeng" or "securityhealthsystray";
+                   or "msmpeng" or "securityhealthsystray" or "smartscreen" or "searchindexer"
+                   or "backgroundtaskhost" or "widgets" or "phoneexperiencehost"
+                   or "applicationframehost" or "lockapp" or "useroobebroker";
     }
 
-    private static string SafeDescription(Process process, string path)    {
+    private static string SafeDescription(Process process, string path)
+    {
         try
         {
             var description = process.MainModule?.FileVersionInfo.FileDescription;

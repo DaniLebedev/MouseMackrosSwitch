@@ -154,12 +154,14 @@ if (vendorDir is not null)
         if (read is not null)
         {
             Check("psf reader: имя профиля", read.ProfileName == "MouseMackros", read.ProfileName);
-            Check("psf reader: кнопка 1", read.ForButton(1)?.Trigger == MouseButtonMap.TriggerFor(1),
-                read.ForButton(1)?.Trigger ?? "null");
-            Check("psf reader: кнопка 16", read.ForButton(16)?.Trigger == MouseButtonMap.TriggerFor(16),
-                read.ForButton(16)?.Trigger ?? "null");
-            Check("psf reader: ЛКМ", read.ForButton(12)?.Trigger == "mouse:Left",
-                read.ForButton(12)?.Trigger ?? "null");
+            Check("psf reader: кнопка 1 = A",
+                read.ForButton(1)?.Action is { Kind: ActionKind.Keys, Value: "Ctrl+Shift+Alt+A" },
+                read.ForButton(1)?.Action?.Value ?? "null");
+            Check("psf reader: кнопка 16 = M",
+                read.ForButton(16)?.Action is { Kind: ActionKind.Keys, Value: "Ctrl+Shift+Alt+M" },
+                read.ForButton(16)?.Action?.Value ?? "null");
+            Check("psf reader: ЛКМ", read.ForButton(12)?.Combo == "mouse:Left",
+                read.ForButton(12)?.Combo ?? "null");
         }
 
         File.Delete(temp);
@@ -168,9 +170,65 @@ if (vendorDir is not null)
     var stock = PsfReader.Read(Path.Combine(vendorDir, "default0.psf"));
     Check("psf reader: стоковый профиль прочитан", stock is not null && stock.Keys.Count >= 16,
         stock?.Keys.Count.ToString() ?? "null");
-    Check("psf reader: стоковая ЛКМ", stock?.ForButton(12)?.Trigger == "mouse:Left",
-        stock?.ForButton(12)?.Trigger ?? "null");
+    Check("psf reader: стоковая ЛКМ", stock?.ForButton(12)?.Combo == "mouse:Left",
+        stock?.ForButton(12)?.Combo ?? "null");
 }
+
+// ---------------------------------------------------------------- vendor layouts -> actions
+var vendorPsf = Path.Combine(Path.GetTempPath(), "mm_vendor_" + Guid.NewGuid().ToString("n") + ".psf");
+var vendorText = """
+    [Setting]
+    ProfileName=Test
+    Key9Name=Macro-tab right
+    Key9Value=902101
+    MacroKeyIndex=2
+    MacroKey9Name=tab right
+    MacroActionNum=6
+    AllAction=A2000000A00000000900000009800000A0800000A2800000
+    Key12Name=Macro-tab left
+    Key12Value=902201
+    MacroKeyIndex=1
+    MacroKey12Name=tab left
+    MacroActionNum=4
+    AllAction=A20000000900000009800000A2800000
+    Key3Name=Copy
+    Key3Value=700106
+    MacroKey3Name=
+    MacroActionNum=0
+    """;
+File.WriteAllText(vendorPsf, vendorText, new UnicodeEncoding(false, true));
+
+var vendor = PsfReader.Read(vendorPsf);
+Check("vendor psf: прочитан", vendor is not null);
+if (vendor is not null)
+{
+    Check("vendor psf: Copy = Ctrl+C",
+        vendor.ForButton(15)?.Action is { Kind: ActionKind.Keys, Value: "Ctrl+C" },
+        vendor.ForButton(15)?.Action?.Value ?? "null");
+
+    var macro = vendor.ForButton(3)?.Action;
+    Check("vendor psf: макрос вкладок разобран", macro is { Kind: ActionKind.Macro },
+        macro?.Kind.ToString() ?? "null");
+    Check("vendor psf: макрос содержит Ctrl+Tab",
+        macro?.Script?.Contains("Tab", StringComparison.OrdinalIgnoreCase) == true &&
+        macro.Script.Contains("Ctrl", StringComparison.OrdinalIgnoreCase),
+        macro?.Script ?? "null");
+    Check("vendor psf: последовательность макроса",
+        macro?.Script == "down Ctrl\ndown Shift\ndown Tab\nup Tab\nup Shift\nup Ctrl",
+        macro?.Script ?? "null");
+    Check("vendor psf: подпись макроса", vendor.ForButton(3)?.Label == "tab right",
+        vendor.ForButton(3)?.Label ?? "null");
+
+    var target = new Profile { Name = "Firefox" };
+    int applied = vendor.ApplyTo(target);
+    Check("vendor psf: действия перенесены", applied == 3, applied.ToString());
+    Check("vendor psf: триггер кнопки 3 нейтральный",
+        target.FindButton(3)?.Trigger == MouseButtonMap.TriggerFor(3),
+        target.FindButton(3)?.Trigger ?? "null");
+    Check("vendor psf: путь .psf записан", target.VendorProfilePath == vendorPsf);
+}
+
+File.Delete(vendorPsf);
 
 // ---------------------------------------------------------------- profile storage
 var dataDir = Path.Combine(Path.GetTempPath(), "mm_selftest_" + Guid.NewGuid().ToString("n"));
@@ -178,6 +236,8 @@ ProfileStore.UseDataDirectory(dataDir);
 
 var stored = Presets.CreateDefault();
 stored.Profiles[1].ApplicationPath = @"C:\Apps\browser.exe";
+stored.Profiles[1].Applications.Add(@"C:\Apps\browser.exe");
+stored.Profiles[1].Applications.Add(@"C:\Apps\second.exe");
 stored.Profiles[1].VendorProfilePath = @"C:\psf\MouseMackros.psf";
 ProfileStore.Save(stored);
 
@@ -190,6 +250,10 @@ var reloaded = ProfileStore.Load();
 Check("storage: профили читаются", reloaded.Profiles.Count == 2, reloaded.Profiles.Count.ToString());
 Check("storage: путь приложения сохранён",
     reloaded.Profiles.Any(p => p.ApplicationPath == @"C:\Apps\browser.exe"));
+Check("storage: несколько приложений",
+    reloaded.Profiles.Any(p => p.Applications.Count == 2));
+Check("storage: процессы из приложений",
+    reloaded.Profiles.Any(p => p.Match.Processes.Contains("second")));
 Check("storage: путь .psf сохранён",
     reloaded.Profiles.Any(p => p.VendorProfilePath == @"C:\psf\MouseMackros.psf"));
 Check("storage: fallback восстановлен", reloaded.FallbackProfile.IsFallback);

@@ -43,6 +43,9 @@ public static class KeyNames
         [0xBA] = "Oem;", [0xBB] = "Oem=", [0xBC] = "Oem,", [0xBD] = "Oem-", [0xBE] = "Oem.",
         [0xBF] = "Oem/", [0xC0] = "Oem`", [0xDB] = "Oem[", [0xDC] = "Oem\\", [0xDD] = "Oem]", [0xDE] = "Oem'",
         [0x5B] = "LWin", [0x5C] = "RWin",
+        [0x10] = "Shift", [0x11] = "Ctrl", [0x12] = "Alt",
+        [0xA0] = "Shift", [0xA1] = "Shift", [0xA2] = "Ctrl", [0xA3] = "Ctrl",
+        [0xA4] = "Alt", [0xA5] = "Alt",
     };
 
     static KeyNames()

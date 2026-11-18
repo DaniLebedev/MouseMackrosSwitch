@@ -1,11 +1,19 @@
 using System.Text;
 using MouseMackros.Input;
 using MouseMackros.Interop;
+using MouseMackros.Model;
 
 namespace MouseMackros.Services;
 
 /// <summary>One [KeyN] entry decoded from a .psf file.</summary>
-public sealed record PsfKey(int KeyIndex, string Name, string RawValue, string? Trigger, string Display);
+public sealed record PsfKey(
+    int KeyIndex,
+    string Name,
+    string Label,
+    string RawValue,
+    string Display,
+    ActionSpec? Action,
+    string? Combo);
 
 /// <summary>Decoded .psf profile: what each mouse button is set to in the vendor app.</summary>
 public sealed class PsfFile
@@ -21,17 +29,57 @@ public sealed class PsfFile
     }
 
     public PsfKey? ForKeyIndex(int keyIndex) => Keys.FirstOrDefault(k => k.KeyIndex == keyIndex);
+
+    /// <summary>
+    /// Replaces this profile's button actions with the ones from the file.
+    /// Triggers stay on the neutral MouseMackros letters, so the same physical
+    /// button behaves differently in every application profile.
+    /// </summary>
+    public int ApplyTo(Profile profile)
+    {
+        profile.Bindings.RemoveAll(b => b.Button > 0);
+
+        int count = 0;
+        foreach (var button in MouseButtonMap.Editable)
+        {
+            var key = ForButton(button.Number);
+            if (key?.Action is null) continue;
+
+            profile.Bindings.Add(new Binding
+            {
+                Button = button.Number,
+                Trigger = MouseButtonMap.TriggerFor(button.Number),
+                Label = key.Label,
+                Action = key.Action.Clone()
+            });
+            count++;
+        }
+
+        profile.VendorProfilePath = Path;
+        return count;
+    }
 }
 
 /// <summary>
-/// Reads .psf files written by the MBF1000PRO utility. Used when a profile
-/// points to a specific vendor layout: the app can show which action every
-/// button sends and pre-fill triggers.
+/// Reads .psf files written by the MBF1000PRO utility. A profile can point to
+/// such a file, and its button actions are copied into the MouseMackros profile.
 /// </summary>
 public static class PsfReader
 {
     private const int TypeKeyboard = 0x70;
     private const int TypeMouse = 0x10;
+    private const int TypeMacro = 0x90;
+    private const int TypeSpecial = 0x30;
+
+    private sealed class Block
+    {
+        public int Index;
+        public string Name = "";
+        public string Value = "";
+        public string? MacroName;
+        public int MacroCount;
+        public string? AllAction;
+    }
 
     public static PsfFile? Read(string path)
     {
@@ -41,7 +89,8 @@ public static class PsfReader
 
             var text = File.ReadAllText(path, DetectEncoding(path));
             var name = "";
-            var keys = new List<PsfKey>();
+            var blocks = new Dictionary<int, Block>();
+            Block? current = null;
 
             foreach (var rawLine in text.Split('\n'))
             {
@@ -58,14 +107,44 @@ public static class PsfReader
                     continue;
                 }
 
-                if (!key.StartsWith("Key", StringComparison.OrdinalIgnoreCase)) continue;
-                if (!key.EndsWith("Value", StringComparison.OrdinalIgnoreCase)) continue;
+                if (key.StartsWith("Key", StringComparison.OrdinalIgnoreCase) &&
+                    key.EndsWith("Name", StringComparison.OrdinalIgnoreCase))
+                {
+                    var middle = key[3..^4];
+                    if (int.TryParse(middle, out int index))
+                    {
+                        current = new Block { Index = index, Name = value };
+                        blocks[index] = current;
+                    }
+                    continue;
+                }
 
-                var middle = key[3..^5];
-                if (!int.TryParse(middle, out int index)) continue;
+                if (current is null) continue;
 
-                keys.Add(Decode(index, value));
+                if (key.Equals("MacroActionNum", StringComparison.OrdinalIgnoreCase))
+                {
+                    current.MacroCount = int.TryParse(value, out var count) ? count : 0;
+                }
+                else if (key.Equals("AllAction", StringComparison.OrdinalIgnoreCase))
+                {
+                    current.AllAction = value;
+                }
+                else if (key.StartsWith("MacroKey", StringComparison.OrdinalIgnoreCase) &&
+                         key.EndsWith("Name", StringComparison.OrdinalIgnoreCase))
+                {
+                    current.MacroName = value;
+                }
+                else if (key.StartsWith("Key", StringComparison.OrdinalIgnoreCase) &&
+                         key.EndsWith("Value", StringComparison.OrdinalIgnoreCase))
+                {
+                    current.Value = value;
+                }
             }
+
+            var keys = blocks.Values
+                .OrderBy(b => b.Index)
+                .Select(Decode)
+                .ToList();
 
             return new PsfFile { Path = path, Keys = keys, ProfileName = name };
         }
@@ -76,44 +155,127 @@ public static class PsfReader
         }
     }
 
-    private static PsfKey Decode(int index, string raw)
+    private static PsfKey Decode(Block block)
     {
-        var name = "Key" + index;
-        if (!TryParseHex(raw, out int type, out int modifiers, out int code))
-            return new PsfKey(index, name, raw, null, "не задано");
+        var name = string.IsNullOrWhiteSpace(block.Name) ? "Key" + block.Index : block.Name;
+        var raw = block.Value;
+
+        if (!TryParseHex(raw, out int type, out int middle, out int code) || (type == 0 && middle == 0 && code == 0))
+            return new PsfKey(block.Index, name, name, raw, "не назначено", null, null);
 
         if (type == TypeKeyboard)
         {
             int vk = HidToVk(code);
-            if (vk == 0) return new PsfKey(index, name, raw, null, "клавиша " + code.ToString("X2"));
+            if (vk == 0)
+                return new PsfKey(block.Index, name, name, raw, "клавиша " + code.ToString("X2"), null, null);
 
-            var normalized = NormalizeModifiers(modifiers);
-            var combo = KeyNames.FormatNormalized(normalized, vk);
-            var trigger = Trigger.Key(combo).ToString();
-            return new PsfKey(index, name, raw, trigger, KeyNames.DescribeCombo(combo));
+            var combo = KeyNames.FormatNormalized(NormalizeModifiers(middle), vk);
+            return new PsfKey(block.Index, name, name, raw, KeyNames.DescribeCombo(combo),
+                new ActionSpec { Kind = ActionKind.Keys, Value = combo }, combo);
         }
 
         if (type == TypeMouse)
         {
-            // Mouse entries put the button code in the middle byte: 100100 = Left,
-            // 100200 = Right, 100400 = Middle.
-            var trigger = MouseCodeToTrigger(modifiers);
-            return new PsfKey(index, name, raw, trigger,
-                trigger is null ? "кнопка мыши" : Trigger.Parse(trigger).DisplayName);
+            // Mouse entries put the button code in the middle byte:
+            // 100100 = Left, 100200 = Right, 100400 = Middle, 100800 = X1, 101000 = X2.
+            var (mouseName, display, combo) = middle switch
+            {
+                0x01 => ("left", "ЛКМ", "mouse:Left"),
+                0x02 => ("right", "ПКМ", "mouse:Right"),
+                0x04 => ("middle", "СКМ", "mouse:Middle"),
+                0x08 => ("x1", "Боковая 1", "mouse:X1"),
+                0x10 => ("x2", "Боковая 2", "mouse:X2"),
+                _ => ("", "", "")
+            };
+
+            if (mouseName.Length == 0)
+                return new PsfKey(block.Index, name, name, raw, "кнопка мыши", null, null);
+
+            return new PsfKey(block.Index, name, name, raw, display,
+                new ActionSpec { Kind = ActionKind.Macro, Script = "press mouse:" + mouseName },
+                combo);
         }
 
-        return new PsfKey(index, name, raw, null, "другое действие");
+        if (type == TypeMacro)
+        {
+            var action = DecodeMacro(block);
+            if (action is null)
+                return new PsfKey(block.Index, name, name, raw, "макрос MBF1000PRO", null, null);
+
+            var label = string.IsNullOrWhiteSpace(block.MacroName) ? name : block.MacroName!;
+            return new PsfKey(block.Index, name, label, raw, "макрос: " + label, action, null);
+        }
+
+        if (type == TypeSpecial)
+        {
+            return new PsfKey(block.Index, name, name + " (не поддерживается)", raw,
+                "спец. действие MBF1000PRO", new ActionSpec { Kind = ActionKind.Block }, null);
+        }
+
+        return new PsfKey(block.Index, name, name, raw, "другое действие", null, null);
     }
 
-    private static bool TryParseHex(string raw, out int type, out int modifiers, out int code)
+    private static ActionSpec? DecodeMacro(Block block)
     {
-        type = modifiers = code = 0;
+        var lines = new List<string>();
+
+        if (block.MacroCount > 0 && !string.IsNullOrWhiteSpace(block.AllAction))
+        {
+            for (int i = 0; i < block.MacroCount; i++)
+            {
+                int offset = i * 8;
+                if (offset + 8 > block.AllAction!.Length) break;
+
+                int low = Convert.ToInt32(block.AllAction.Substring(offset, 2), 16);
+                int high = Convert.ToInt32(block.AllAction.Substring(offset + 2, 2), 16);
+                int value = low | (high << 8);
+
+                bool up = (value & 0x8000) != 0;
+                int keyCode = value & 0x7FFF;
+                var keyName = MacroKeyName(keyCode);
+                if (keyName is null) return null;
+
+                lines.Add((up ? "up " : "down ") + keyName);
+            }
+        }
+
+        if (lines.Count == 0)
+        {
+            var name = (block.MacroName ?? block.Name).ToLowerInvariant();
+            if (name.Contains("tab right")) lines.Add("press Ctrl+Tab");
+            else if (name.Contains("tab left")) lines.Add("press Ctrl+Shift+Tab");
+        }
+
+        if (lines.Count == 0) return null;
+
+        return new ActionSpec
+        {
+            Kind = ActionKind.Macro,
+            Mode = MacroMode.Once,
+            Script = string.Join("\n", lines)
+        };
+    }
+
+    /// <summary>Vendor macro key id -> our key name.</summary>
+    private static string? MacroKeyName(int code) => code switch
+    {
+        0xA0 or 0xA1 => "Shift",
+        0xA2 or 0xA3 => "Ctrl",
+        0xA4 or 0xA5 => "Alt",
+        0xA6 or 0xA7 => "Win",
+        _ when code is > 0 and < 0x80 => KeyNames.GetName(code),
+        _ => null
+    };
+
+    private static bool TryParseHex(string raw, out int type, out int middle, out int code)
+    {
+        type = middle = code = 0;
         var value = raw.Trim();
         if (value.Length != 6) return false;
         try
         {
             type = Convert.ToInt32(value[..2], 16);
-            modifiers = Convert.ToInt32(value[2..4], 16);
+            middle = Convert.ToInt32(value[2..4], 16);
             code = Convert.ToInt32(value[4..], 16);
             return true;
         }
@@ -131,16 +293,6 @@ public static class PsfReader
         if ((mask & 4) != 0) yield return 2;
         if ((mask & 8) != 0) yield return 3;
     }
-
-    private static string? MouseCodeToTrigger(int code) => code switch
-    {
-        0x01 => "mouse:Left",
-        0x02 => "mouse:Right",
-        0x04 => "mouse:Middle",
-        0x08 => "mouse:X1",
-        0x10 => "mouse:X2",
-        _ => null
-    };
 
     /// <summary>USB HID usage id -&gt; Windows virtual key for the keys we can decode.</summary>
     public static int HidToVk(int code)
