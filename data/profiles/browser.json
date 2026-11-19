@@ -6,8 +6,8 @@
     "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
   ],
   "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\firefox.psf",
-  "PsfRevision": 3,
+  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\xz.psf",
+  "PsfRevision": 4,
   "Match": {
     "Processes": [
       "chrome",
@@ -93,6 +93,19 @@
       "Action": {
         "Kind": "Keys",
         "Value": "Ctrl+Shift+Tab",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 8,
+      "Trigger": "key:Ctrl+Shift+Alt+H",
+      "Label": "open explorer",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "down LWin\ndelay 62\ndown E\ndelay 63\nup E\ndelay 31\nup LWin",
         "Mode": "Once",
         "Repeat": 0
       },

@@ -53,7 +53,9 @@ public sealed class WindowWatcher : IDisposable
                 info = GetPointed() ?? info;
             if (info is null) return;
 
-            var key = info.Handle + "|" + info.ProcessName;
+            // The title is part of the key: switching tabs inside one browser
+            // window keeps the handle, but must re-evaluate title-based sub-profiles.
+            var key = KeyOf(info);
             lock (_gate)
             {
                 if (key == _lastKey) return;
@@ -76,9 +78,12 @@ public sealed class WindowWatcher : IDisposable
         var info = Describe(hwnd);
         if (info is null) return;
 
-        lock (_gate) _lastKey = info.Handle + "|" + info.ProcessName;
+        lock (_gate) _lastKey = KeyOf(info);
         ForegroundChanged?.Invoke(this, info);
     }
+
+    private static string KeyOf(WindowInfo info) =>
+        info.Handle + "|" + info.ProcessName + "|" + info.Title;
 
     public WindowInfo? GetForeground() => Describe(NativeMethods.GetForegroundWindow());
 

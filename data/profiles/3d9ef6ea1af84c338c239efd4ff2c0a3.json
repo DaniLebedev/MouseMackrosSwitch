@@ -7,7 +7,7 @@
   ],
   "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
   "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\firefox.psf",
-  "PsfRevision": 3,
+  "PsfRevision": 4,
   "Match": {
     "Processes": [
       "firefox"
@@ -30,10 +30,10 @@
     {
       "Button": 3,
       "Trigger": "key:Ctrl+Shift+Alt+C",
-      "Label": "tab right",
+      "Label": "tab left",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Tab",
+        "Value": "Ctrl+Shift+Tab",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -55,10 +55,10 @@
     {
       "Button": 6,
       "Trigger": "key:Ctrl+Shift+Alt+F",
-      "Label": "tab left",
+      "Label": "tab right",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Shift+Tab",
+        "Value": "Ctrl+Tab",
         "Mode": "Once",
         "Repeat": 0
       },

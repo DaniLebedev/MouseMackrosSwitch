@@ -6,8 +6,8 @@
     "C:\\Program Files (x86)\\Steam\\steam.exe"
   ],
   "ApplicationPath": "C:\\Program Files (x86)\\Steam\\steam.exe",
-  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\firefox.psf",
-  "PsfRevision": 3,
+  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\word.psf",
+  "PsfRevision": 4,
   "Match": {
     "Processes": [
       "steam",
@@ -30,24 +30,12 @@
       "Enabled": true
     },
     {
-      "Button": 1,
-      "Trigger": "key:Ctrl+Shift+Alt+A",
-      "Label": "WIN+D",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "Win+D",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
       "Button": 3,
       "Trigger": "key:Ctrl+Shift+Alt+C",
-      "Label": "tab right",
+      "Label": "Copy",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Tab",
+        "Value": "Ctrl+C",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -69,10 +57,10 @@
     {
       "Button": 6,
       "Trigger": "key:Ctrl+Shift+Alt+F",
-      "Label": "tab left",
+      "Label": "Paste",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Shift+Tab",
+        "Value": "Ctrl+V",
         "Mode": "Once",
         "Repeat": 0
       },

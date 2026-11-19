@@ -320,6 +320,34 @@ public static class ProfileStore
         foreach (var profile in config.Profiles)
             if (!ReferenceEquals(profile, fallback)) profile.IsFallback = false;
 
+        // Sub-profiles: the fallback cannot be nested, and a missing parent
+        // (deleted/imported profile) turns the child into a normal profile.
+        foreach (var profile in config.Profiles)
+        {
+            if (profile.IsFallback) profile.ParentId = null;
+            if (AppConfig.ParentOf(profile) is string parentId &&
+                config.GetProfile(parentId) is null)
+            {
+                profile.ParentId = null;
+            }
+        }
+
+        // Break accidental cycles so matching cannot loop forever.
+        foreach (var profile in config.Profiles)
+        {
+            var chain = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { profile.Id };
+            var id = AppConfig.ParentOf(profile);
+            while (id is not null)
+            {
+                if (!chain.Add(id))
+                {
+                    profile.ParentId = null;
+                    break;
+                }
+                id = config.GetProfile(id) is { } parent ? AppConfig.ParentOf(parent) : null;
+            }
+        }
+
         config.DefaultProfileId = fallback.Id;
 
         // Keep the list stable between starts: fallback first, then by name.

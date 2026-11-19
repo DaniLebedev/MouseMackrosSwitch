@@ -73,7 +73,7 @@ public sealed class PsfFile
 public static class PsfReader
 {
     /// <summary>Bump when the action decoder learns new .psf features.</summary>
-    public const int CurrentRevision = 3;
+    public const int CurrentRevision = 4;
 
     private const int TypeKeyboard = 0x70;
     private const int TypeMouse = 0x10;
@@ -265,10 +265,19 @@ public static class PsfReader
                 int high = Convert.ToInt32(block.AllAction.Substring(offset + 2, 2), 16);
                 int value = low | (high << 8);
 
+                // Macro step layout is 4 bytes: key/flags and a 16-bit parameter.
+                // 03 00 <ms> is the vendor's "delay" pseudo-command.
+                if (low == 0x03 && high == 0x00)
+                {
+                    int delay = Convert.ToInt32(block.AllAction.Substring(offset + 4, 4), 16);
+                    lines.Add("delay " + Math.Clamp(delay, 0, 60_000));
+                    continue;
+                }
+
                 bool up = (value & 0x8000) != 0;
                 int keyCode = value & 0x7FFF;
                 var keyName = MacroKeyName(keyCode);
-                if (keyName is null) return null;
+                if (keyName is null) continue;
 
                 lines.Add((up ? "up " : "down ") + keyName);
             }

@@ -126,6 +126,13 @@ public sealed class Profile
 
     public bool IsFallback { get; set; }
 
+    /// <summary>
+    /// Parent profile id for a sub-profile (e.g. a site inside a browser, a
+    /// document inside an editor). Empty for ordinary top-level profiles.
+    /// A sub-profile is considered only when all its ancestors also match.
+    /// </summary>
+    public string? ParentId { get; set; }
+
     /// <summary>All attached applications, including the legacy single path.</summary>
     [JsonIgnore]
     public IReadOnlyList<string> AllApplications
@@ -170,6 +177,7 @@ public sealed class Profile
         IsFallback = false,
         Applications = Applications.ToList(),
         ApplicationPath = ApplicationPath,
+        ParentId = ParentId,
         VendorProfilePath = VendorProfilePath,
         PsfRevision = PsfRevision,
         Match = new MatchRules
@@ -200,8 +208,37 @@ public sealed class AppConfig
     public string DefaultProfileId { get; set; } = "default";
     public List<Profile> Profiles { get; set; } = new();
 
-    public Profile? GetProfile(string id) =>
-        Profiles.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+    public Profile? GetProfile(string? id) =>
+        string.IsNullOrWhiteSpace(id)
+            ? null
+            : Profiles.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Direct children of a profile (null/empty = top-level profiles).</summary>
+    public IEnumerable<Profile> ChildrenOf(string? parentId) =>
+        Profiles.Where(p => string.Equals(ParentOf(p), parentId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Parent id, normalizing an empty string to null.</summary>
+    public static string? ParentOf(Profile profile) =>
+        string.IsNullOrWhiteSpace(profile.ParentId) ? null : profile.ParentId;
+
+    /// <summary>How deep a profile is nested; top-level profiles are 0.</summary>
+    public int DepthOf(Profile profile)
+    {
+        int depth = 0;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { profile.Id };
+        var current = profile;
+
+        while (ParentOf(current) is string parentId && seen.Add(parentId))
+        {
+            var parent = GetProfile(parentId);
+            if (parent is null) break;
+            depth++;
+            current = parent;
+            if (depth > 32) break;
+        }
+
+        return depth;
+    }
 
     public Profile FallbackProfile =>
         Profiles.FirstOrDefault(p => p.Id == DefaultProfileId)

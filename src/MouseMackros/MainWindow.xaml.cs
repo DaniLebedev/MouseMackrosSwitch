@@ -89,20 +89,26 @@ public partial class MainWindow : Window
         try
         {
             _profileRows.Clear();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddRows(string? parentId, int depth)
+            {
+                foreach (var profile in _app.Config.ChildrenOf(parentId))
+                {
+                    if (!seen.Add(profile.Id)) continue;
+                    AddRow(profile, depth);
+                    AddRows(profile.Id, depth + 1);
+                }
+            }
+
+            AddRows(null, 0);
+
+            // Safety net for a broken parent link: show the profile at top level.
             foreach (var profile in _app.Config.Profiles)
             {
-                _profileRows.Add(new ProfileRow
-                {
-                    Model = profile,
-                    Name = string.IsNullOrWhiteSpace(profile.Name) ? "Без имени" : profile.Name,
-                    Subtitle = DescribeRules(profile),
-                    Accent = AccentBrush(profile.Accent),
-                    Initial = InitialOf(profile.Name),
-                    Icon = AppCatalog.IconFor(profile.AllApplications.FirstOrDefault()),
-                    ActiveVisibility = ReferenceEquals(profile, _app.Engine.ActiveProfile)
-                        ? Visibility.Visible
-                        : Visibility.Collapsed
-                });
+                if (seen.Contains(profile.Id)) continue;
+                AddRow(profile, 0);
+                AddRows(profile.Id, 1);
             }
 
             ProfileCountText.Text = _profileRows.Count.ToString();
@@ -117,27 +123,44 @@ public partial class MainWindow : Window
         }
     }
 
+    private void AddRow(Profile profile, int depth)
+    {
+        _profileRows.Add(new ProfileRow
+        {
+            Model = profile,
+            Name = string.IsNullOrWhiteSpace(profile.Name) ? "Без имени" : profile.Name,
+            Subtitle = DescribeRules(profile),
+            Accent = AccentBrush(profile.Accent),
+            Initial = InitialOf(profile.Name),
+            Icon = AppCatalog.IconFor(profile.AllApplications.FirstOrDefault()),
+            IndentWidth = depth * 16,
+            ActiveVisibility = ReferenceEquals(profile, _app.Engine.ActiveProfile)
+                ? Visibility.Visible
+                : Visibility.Collapsed
+        });
+    }
+
     private static string DescribeRules(Profile profile)
     {
+        if (profile.IsFallback) return "работает во всех окнах";
+
         var apps = profile.AllApplications;
-        if (apps.Count > 1)
-            return $"{apps.Count} прил.: " + string.Join(", ", apps.Take(2).Select(Path.GetFileNameWithoutExtension)) +
-                   (apps.Count > 2 ? "…" : "");
-
-        if (profile.IsFallback)
-            return "работает во всех окнах";
-
-        if (apps.Count == 1)
-            return Path.GetFileName(apps[0]);
-
         var parts = new List<string>();
-        if (profile.Match.Processes.Count > 0)
-            parts.Add(string.Join(", ", profile.Match.Processes.Take(2)) +
-                      (profile.Match.Processes.Count > 2 ? "…" : ""));
+
         if (!string.IsNullOrWhiteSpace(profile.Match.TitleContains))
             parts.Add("\"" + profile.Match.TitleContains + "\"");
         if (!string.IsNullOrWhiteSpace(profile.Match.WindowClass))
             parts.Add("класс " + profile.Match.WindowClass);
+
+        if (apps.Count > 1)
+            parts.Add($"{apps.Count} прил.: " +
+                      string.Join(", ", apps.Take(2).Select(Path.GetFileNameWithoutExtension)) +
+                      (apps.Count > 2 ? "…" : ""));
+        else if (apps.Count == 1)
+            parts.Add(Path.GetFileName(apps[0]));
+        else if (profile.Match.Processes.Count > 0)
+            parts.Add(string.Join(", ", profile.Match.Processes.Take(2)) +
+                      (profile.Match.Processes.Count > 2 ? "…" : ""));
 
         return parts.Count == 0 ? "приложение не выбрано" : string.Join(" · ", parts);
     }
@@ -169,6 +192,13 @@ public partial class MainWindow : Window
 
             FallbackChip.Visibility = _selected.IsFallback ? Visibility.Visible : Visibility.Collapsed;
             RulesButton.IsEnabled = !_selected.IsFallback;
+
+            var parent = _app.Config.GetProfile(_selected.ParentId);
+            SubProfileChip.Visibility = parent is null ? Visibility.Collapsed : Visibility.Visible;
+            SubProfileChipText.Text = parent is null ? "" : "подпрофиль: " + parent.Name;
+            SubProfileChip.ToolTip = parent is null
+                ? null
+                : "Включается, когда совпадают правила профиля «" + parent.Name + "» и его собственные.";
         }
         finally
         {
@@ -327,8 +357,10 @@ public partial class MainWindow : Window
         bool editable = _selected is { IsFallback: false };
         MenuItemAt(menu, 0).IsEnabled = _selected is not null;
         MenuItemAt(menu, 1).IsEnabled = _selected is { IsFallback: false };
-        MenuItemAt(menu, 3).IsEnabled = editable;
-        MenuItemAt(menu, 4).IsEnabled = editable;
+        MenuItemAt(menu, 2).IsEnabled = _selected is not null;
+        MenuItemAt(menu, 3).IsEnabled = _selected is not null;
+        MenuItemAt(menu, 5).IsEnabled = editable && _selected?.ParentId is null;
+        MenuItemAt(menu, 6).IsEnabled = editable;
         OpenMenu(menu, (FrameworkElement)sender);
     }
 
@@ -431,6 +463,89 @@ public partial class MainWindow : Window
         return profile;
     }
 
+    private void AddSubProfile_Click(object sender, RoutedEventArgs e) => CreateSubProfile(false);
+
+    private void AddSubProfileForWindow_Click(object sender, RoutedEventArgs e) => CreateSubProfile(true);
+
+    /// <summary>
+    /// Creates a nested profile. It copies the parent's apps and button layout,
+    /// then adds one extra condition — usually a stable part of the window title
+    /// ("YouTube", a document name, a game name...).
+    /// </summary>
+    private void CreateSubProfile(bool useCurrentWindow)
+    {
+        if (_selected is null) return;
+
+        var parent = _selected;
+        var window = useCurrentWindow ? _app.Engine.CurrentWindow : null;
+        var suggested = window is null
+            ? ""
+            : SuggestTitle(window.Title, IsBrowser(window.ProcessName));
+
+        var dialog = new SubProfileDialog(
+            parent.Name,
+            string.IsNullOrWhiteSpace(suggested) ? parent.Name + " — подпрофиль" : parent.Name + " · " + suggested,
+            suggested,
+            window?.Title ?? "") { Owner = this };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var child = parent.Clone();
+        child.Name = string.IsNullOrWhiteSpace(dialog.ProfileName)
+            ? parent.Name + " — подпрофиль"
+            : dialog.ProfileName.Trim();
+        child.ParentId = parent.Id;
+        child.IsFallback = false;
+        child.Match.TitleContains = string.IsNullOrWhiteSpace(dialog.TitleContains)
+            ? null
+            : dialog.TitleContains.Trim();
+        child.Match.Priority = parent.Match.Priority;
+
+        _app.Config.Profiles.Add(child);
+        _selected = child;
+        _app.Engine.Invalidate();
+        RefreshProfileList();
+        RefreshContent();
+        ScheduleSave();
+
+        LastInputText.Text = "Создан подпрофиль: " + child.Name;
+        ProfileNameBox.Focus();
+        ProfileNameBox.SelectAll();
+    }
+
+    private static bool IsBrowser(string process) =>
+        process is "firefox" or "chrome" or "msedge" or "brave" or "opera" or "vivaldi"
+            or "yandex" or "librewolf" or "thorium" or "arc";
+
+    /// <summary>Turns a browser title into a likely site name ("Video - YouTube" → "YouTube").</summary>
+    private static string SuggestTitle(string title, bool browser)
+    {
+        var text = (title ?? "").Trim();
+        if (text.Length == 0) return "";
+
+        if (!browser) return text;
+
+        foreach (var suffix in new[]
+                 {
+                     " - Mozilla Firefox", " — Mozilla Firefox",
+                     " - Google Chrome", " - Microsoft Edge",
+                     " - Opera", " - Vivaldi", " - Brave", " - Yandex"
+                 })
+        {
+            if (text.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                text = text[..^suffix.Length].Trim();
+                break;
+            }
+        }
+
+        int dash = text.LastIndexOf(" - ", StringComparison.Ordinal);
+        if (dash > 0 && dash + 3 < text.Length)
+            text = text[(dash + 3)..].Trim();
+
+        return text;
+    }
+
     private void ProfileNameBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_suppress || _selected is null) return;
@@ -530,6 +645,15 @@ public partial class MainWindow : Window
     {
         if (_selected is null) return;
 
+        if (_selected.ParentId is not null)
+        {
+            AppDialog.ShowInfo(
+                "Подпрофиль включается только внутри родительского профиля, поэтому\n" +
+                "сделать его основным нельзя. Сначала создайте отдельный профиль.",
+                "Основной профиль");
+            return;
+        }
+
         foreach (var profile in _app.Config.Profiles) profile.IsFallback = false;
         _selected.IsFallback = true;
         _app.Config.DefaultProfileId = _selected.Id;
@@ -539,9 +663,30 @@ public partial class MainWindow : Window
     private void DeleteProfile_Click(object sender, RoutedEventArgs e)
     {
         if (_selected is null || _selected.IsFallback) return;
-        if (!AppDialog.Confirm($"Удалить профиль «{_selected.Name}»?", "Удаление профиля")) return;
 
-        _app.Config.Profiles.Remove(_selected);
+        var doomed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { _selected.Id };
+        bool grew;
+        do
+        {
+            grew = false;
+            foreach (var profile in _app.Config.Profiles)
+            {
+                if (AppConfig.ParentOf(profile) is string parentId &&
+                    doomed.Contains(parentId) &&
+                    doomed.Add(profile.Id))
+                {
+                    grew = true;
+                }
+            }
+        } while (grew);
+
+        int children = doomed.Count - 1;
+        var question = children > 0
+            ? $"Удалить профиль «{_selected.Name}» вместе с подпрофилями ({children})?"
+            : $"Удалить профиль «{_selected.Name}»?";
+        if (!AppDialog.Confirm(question, "Удаление профиля")) return;
+
+        _app.Config.Profiles.RemoveAll(p => doomed.Contains(p.Id));
         _selected = _app.Config.FallbackProfile;
         _app.Engine.Invalidate();
         RefreshProfileList();
@@ -996,6 +1141,7 @@ public partial class MainWindow : Window
         public string Initial { get; init; } = "";
         public Brush Accent { get; init; } = Brushes.Gray;
         public ImageSource? Icon { get; init; }
+        public double IndentWidth { get; init; }
         public Visibility ActiveVisibility { get; init; } = Visibility.Collapsed;
     }
 

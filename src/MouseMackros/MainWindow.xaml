@@ -65,6 +65,8 @@
         <ContextMenu x:Key="ProfileMenu">
             <MenuItem Header="Добавить приложение…" Click="AddApp_Click" />
             <MenuItem Header="Правила срабатывания…" Click="Rules_Click" />
+            <MenuItem Header="Добавить подпрофиль…" Click="AddSubProfile_Click" />
+            <MenuItem Header="Подпрофиль для текущего окна…" Click="AddSubProfileForWindow_Click" />
             <Separator />
             <MenuItem Header="Сделать основным" Click="MakeDefault_Click" />
             <MenuItem Header="Удалить профиль" Click="DeleteProfile_Click" />
@@ -172,11 +174,14 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <Grid Width="34" Height="34" Margin="0,0,10,0">
+                                        <Border Width="{Binding IndentWidth}" />
+
+                                        <Grid Grid.Column="1" Width="34" Height="34" Margin="0,0,10,0">
                                             <Border CornerRadius="8" Background="{Binding Accent}" Opacity="0.9">
                                                 <TextBlock Text="{Binding Initial}" FontWeight="Bold" FontSize="14"
                                                            Foreground="#0E1626" HorizontalAlignment="Center"
@@ -185,14 +190,14 @@
                                             <Image Source="{Binding Icon}" Width="24" Height="24" />
                                         </Grid>
 
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Subtitle}" Style="{StaticResource MutedText}"
                                                        FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                                         </StackPanel>
 
-                                        <Ellipse Grid.Column="2" Width="7" Height="7" Fill="{StaticResource SuccessBrush}"
+                                        <Ellipse Grid.Column="3" Width="7" Height="7" Fill="{StaticResource SuccessBrush}"
                                                  VerticalAlignment="Center" Margin="6,0,2,0"
                                                  Visibility="{Binding ActiveVisibility}" />
                                     </Grid>
@@ -278,6 +283,11 @@
                                     <Border x:Name="FallbackChip" Style="{StaticResource Chip}">
                                         <TextBlock Text="основной профиль" Style="{StaticResource ChipText}"
                                                    Foreground="#7FB2FF" />
+                                    </Border>
+                                    <Border x:Name="SubProfileChip" Style="{StaticResource Chip}"
+                                            Visibility="Collapsed">
+                                        <TextBlock x:Name="SubProfileChipText" Style="{StaticResource ChipText}"
+                                                   Foreground="#C3A0FF" />
                                     </Border>
                                 </WrapPanel>
                                 <Border x:Name="VendorBanner" Background="#2A2318" BorderBrush="#5A4420"

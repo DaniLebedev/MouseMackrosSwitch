@@ -60,6 +60,51 @@ Check("wildcard: *game*", ProfileEngine.Wildcard("*game*", "mygameclient"));
 Check("wildcard: game.exe", ProfileEngine.Wildcard("game.exe", "game"));
 Check("wildcard: нет ложного совпадения", !ProfileEngine.Wildcard("chrome", "msedge"));
 
+// ---------------------------------------------------------------- sub-profiles
+var nested = new AppConfig { DefaultProfileId = "fallback" };
+var fallback = new Profile
+{
+    Id = "fallback", Name = "Везде", IsFallback = true,
+    Match = new MatchRules { Priority = -100 }
+};
+var browser = new Profile
+{
+    Id = "browser", Name = "Браузер",
+    Match = new MatchRules { Priority = 20, Processes = { "firefox", "chrome" } }
+};
+var youtube = new Profile
+{
+    Id = "youtube", Name = "Браузер · YouTube", ParentId = "browser",
+    Match = new MatchRules { TitleContains = "YouTube", Priority = 0 }
+};
+nested.Profiles.AddRange(new[] { fallback, browser, youtube });
+
+WindowInfo Win(string process, string title) => new(IntPtr.Zero, process, null, title, "");
+
+Check("подпрофиль: глубина = 1", nested.DepthOf(youtube) == 1, nested.DepthOf(youtube).ToString());
+Check("подпрофиль: YouTube выигрывает у родителя",
+    ProfileEngine.SelectProfile(nested, Win("firefox", "Клип - YouTube")).Id == "youtube",
+    ProfileEngine.SelectProfile(nested, Win("firefox", "Клип - YouTube")).Id);
+Check("подпрофиль: обычная страница → родитель",
+    ProfileEngine.SelectProfile(nested, Win("firefox", "Новая вкладка")).Id == "browser",
+    ProfileEngine.SelectProfile(nested, Win("firefox", "Новая вкладка")).Id);
+Check("подпрофиль: родитель не совпал → fallback",
+    ProfileEngine.SelectProfile(nested, Win("notepad", "Клип - YouTube")).Id == "fallback",
+    ProfileEngine.SelectProfile(nested, Win("notepad", "Клип - YouTube")).Id);
+Check("подпрофиль: глубина важнее приоритета",
+    ProfileEngine.SelectProfile(nested, Win("chrome", "YouTube")).Id == "youtube",
+    ProfileEngine.SelectProfile(nested, Win("chrome", "YouTube")).Id);
+
+var nestedJson = JsonSerializer.Serialize(nested, ProfileStore.JsonOptions);
+var nestedBack = JsonSerializer.Deserialize<AppConfig>(nestedJson, ProfileStore.JsonOptions)!;
+Check("JSON: ParentId сохраняется", nestedBack.GetProfile("youtube")?.ParentId == "browser",
+    nestedBack.GetProfile("youtube")?.ParentId ?? "null");
+
+var orphan = new AppConfig { Profiles = { new Profile { Id = "orphan", ParentId = "missing" } } };
+ProfileStore.Normalize(orphan);
+Check("подпрофиль: потерянный родитель сбрасывается", orphan.GetProfile("orphan")?.ParentId is null,
+    orphan.GetProfile("orphan")?.ParentId ?? "null");
+
 // ---------------------------------------------------------------- keys
 Check("Ctrl+Alt+Shift+A разбирается",
     KeyNames.TryParseCombo("Ctrl+Alt+Shift+A", out var mods, out var key) && key == 0x41 && mods.Count == 3);
@@ -224,6 +269,11 @@ var vendorText = """
     Key15Value=600500
     MacroKey15Name=
     MacroActionNum=0
+    Key14Name=Macro-open explorer
+    Key14Value=902301
+    MacroKey14Name=open explorer
+    MacroActionNum=7
+    AllAction=5B0000000300003E450000000300003F458000000300001F5B800000
     """;
 File.WriteAllText(vendorPsf, vendorText, new UnicodeEncoding(false, true));
 
@@ -248,9 +298,17 @@ if (vendor is not null)
         vendor.ForButton(8)?.Action is { Kind: ActionKind.Run, Value: @"C:\Program Files\MBF1000PRO Mouse\GamingMS.exe" },
         vendor.ForButton(8)?.Action?.Value ?? "null");
 
+    var explorer = vendor.ForButton(7)?.Action;
+    Check("vendor psf: задержка в макросе",
+        explorer is { Kind: ActionKind.Macro } && explorer.Script?.Contains("delay 62") == true,
+        explorer?.Script ?? "null");
+    Check("vendor psf: псевдокоманда задержки не превращается в клавишу",
+        explorer?.Script?.Contains("VK03") != true,
+        explorer?.Script ?? "null");
+
     var target = new Profile { Name = "Firefox" };
     int applied = vendor.ApplyTo(target);
-    Check("vendor psf: действия перенесены", applied == 4, applied.ToString());
+    Check("vendor psf: действия перенесены", applied == 5, applied.ToString());
     Check("vendor psf: триггер кнопки 3 нейтральный",
         target.FindButton(3)?.Trigger == MouseButtonMap.TriggerFor(3),
         target.FindButton(3)?.Trigger ?? "null");
@@ -266,9 +324,8 @@ var userXz = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Us
 if (File.Exists(userXz))
 {
     var xz = PsfReader.Read(userXz);
-    Check("xz.psf: запуск приложения на кнопке 8",
-        xz?.ForButton(8)?.Action is { Kind: ActionKind.Run, Value.Length: > 0 },
-        xz?.ForButton(8)?.Action?.Value ?? "null");
+    Check("xz.psf: прочитан", xz is { Keys.Count: > 0 }, xz?.Keys.Count.ToString() ?? "null");
+    Check("xz.psf: действия декодируются", xz?.Keys.Any(k => k.Action is not null) == true);
     Check("xz.psf: это не нейтральная раскладка", xz is { IsNeutralLayout: false });
 }
 

@@ -143,26 +143,61 @@ public sealed class ProfileEngine : IDisposable
         ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private Profile Resolve(WindowInfo? window)
+    private Profile Resolve(WindowInfo? window) => SelectProfile(Config, window, _manualProfileId);
+
+    /// <summary>
+    /// Picks the most specific profile for a window. Nested profiles win over
+    /// their parents, so a "YouTube" sub-profile of "Браузер" takes over only
+    /// on YouTube pages and only while the browser itself also matches.
+    /// </summary>
+    public static Profile SelectProfile(AppConfig config, WindowInfo? window, string? manualId = null)
     {
-        if (_manualProfileId is not null)
+        if (!string.IsNullOrWhiteSpace(manualId))
         {
-            var manual = Config.GetProfile(_manualProfileId);
+            var manual = config.GetProfile(manualId);
             if (manual is not null) return manual;
         }
+
         if (window is not null)
         {
             Profile? best = null;
-            foreach (var p in Config.Profiles)
+            int bestDepth = -1;
+
+            foreach (var p in config.Profiles)
             {
                 if (p.IsFallback || !p.Match.HasRules) continue;
                 if (!Matches(p.Match, window)) continue;
-                if (best is null || p.Match.Priority > best.Match.Priority) best = p;
+                if (!AncestorsMatch(config, p, window)) continue;
+
+                int depth = config.DepthOf(p);
+                if (best is null || depth > bestDepth ||
+                    (depth == bestDepth && p.Match.Priority > best.Match.Priority))
+                {
+                    best = p;
+                    bestDepth = depth;
+                }
             }
+
             if (best is not null) return best;
         }
 
-        return Config.FallbackProfile;
+        return config.FallbackProfile;
+    }
+
+    private static bool AncestorsMatch(AppConfig config, Profile profile, WindowInfo window)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { profile.Id };
+        var current = profile;
+
+        while (AppConfig.ParentOf(current) is string parentId && seen.Add(parentId))
+        {
+            var parent = config.GetProfile(parentId);
+            if (parent is null) break;
+            if (parent.Match.HasRules && !Matches(parent.Match, window)) return false;
+            current = parent;
+        }
+
+        return true;
     }
 
     private static bool Matches(MatchRules rules, WindowInfo window)
