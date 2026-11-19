@@ -16,7 +16,6 @@ public sealed class WindowWatcher : IDisposable
     private readonly object _gate = new();
     private IntPtr _hook;
     private bool _started;
-    private System.Threading.Timer? _backgroundTimer;
     private DispatcherTimer? _timer;
     private string _lastKey = "";
 
