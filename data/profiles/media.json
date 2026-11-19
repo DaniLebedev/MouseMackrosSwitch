@@ -2,7 +2,10 @@
   "Id": "media",
   "Name": "Музыка и видео",
   "Accent": "#9B6BF2",
-  "Applications": [],
+  "Applications": [
+    "C:\\Program Files (x86)\\AIMP\\AIMP.exe"
+  ],
+  "ApplicationPath": "C:\\Program Files (x86)\\AIMP\\AIMP.exe",
   "PsfRevision": 0,
   "Match": {
     "Processes": [

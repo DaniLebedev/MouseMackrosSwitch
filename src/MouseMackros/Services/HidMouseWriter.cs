@@ -58,6 +58,10 @@ public static class HidMouseWriter
     [DllImport("hid.dll")] private static extern int HidP_GetCaps(IntPtr data, ref HIDP_CAPS caps);
     [DllImport("hid.dll")] private static extern bool HidD_GetFeature(IntPtr handle, byte[] buffer, int length);
     [DllImport("hid.dll")] private static extern bool HidD_SetFeature(IntPtr handle, byte[] buffer, int length);
+    [DllImport("hid.dll", CharSet = CharSet.Unicode)]
+    private static extern bool HidD_GetProductString(IntPtr handle, System.Text.StringBuilder buffer, int length);
+    [DllImport("hid.dll", CharSet = CharSet.Unicode)]
+    private static extern bool HidD_GetManufacturerString(IntPtr handle, System.Text.StringBuilder buffer, int length);
 
     [DllImport("setupapi.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr SetupDiGetClassDevs(ref Guid classGuid, IntPtr enumerator, IntPtr parent, uint flags);
@@ -189,7 +193,8 @@ public static class HidMouseWriter
 
     private static IntPtr FindDevice(out string info)
     {
-        info = "Проверьте подключение по USB.";
+        info = "Проверьте подключение по USB или ресивер.";
+        var seen = new List<string>();
         HidD_GetHidGuid(out var guid);
 
         // CfgMgr32 lists every HID top-level collection, including the vendor
@@ -205,7 +210,7 @@ public static class HidMouseWriter
                 {
                     foreach (var path in new string(buffer).Split('\0', StringSplitOptions.RemoveEmptyEntries))
                     {
-                        if (TryOpenCandidate(path, out var handle, out var detail))
+                        if (TryOpenCandidate(path, out var handle, out var detail, seen))
                         {
                             info = path + "\n" + detail;
                             return handle;
@@ -246,7 +251,7 @@ public static class HidMouseWriter
                     var path = Marshal.PtrToStringUni(detail + 4);
                     if (string.IsNullOrWhiteSpace(path)) continue;
 
-                    if (TryOpenCandidate(path, out var handle, out _))
+                    if (TryOpenCandidate(path, out var handle, out _, seen))
                     {
                         info = path;
                         return handle;
@@ -263,25 +268,39 @@ public static class HidMouseWriter
             SetupDiDestroyDeviceInfoList(set);
         }
 
+        if (seen.Count > 0)
+            info = string.Join("\n", seen.Take(12));
+
         return IntPtr.Zero;
     }
 
-    private static bool TryOpenCandidate(string path, out IntPtr handle, out string detail)
+    private static bool TryOpenCandidate(string path, out IntPtr handle, out string detail,
+        List<string>? seen = null)
     {
         handle = IntPtr.Zero;
         detail = "";
 
         var candidate = CreateFile(path, GENERIC_READ | GENERIC_WRITE,
             FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
-        if (candidate == new IntPtr(-1)) return false;
+        if (candidate == new IntPtr(-1))
+        {
+            seen?.Add("нет доступа: " + Path.GetFileName(path));
+            return false;
+        }
 
         var attributes = new HIDD_ATTRIBUTES { Size = Marshal.SizeOf<HIDD_ATTRIBUTES>() };
-        if (!HidD_GetAttributes(candidate, ref attributes) ||
-            attributes.VendorId != MouseVendorId || attributes.ProductId != MouseProductId)
+        if (!HidD_GetAttributes(candidate, ref attributes))
         {
             CloseHandle(candidate);
             return false;
         }
+
+        bool known = (attributes.VendorId == 0x04F3 && attributes.ProductId == 0x026E) ||
+                     (attributes.VendorId == 0x1A2C && attributes.ProductId == 0x4C5E);
+
+        var product = new System.Text.StringBuilder(256);
+        HidD_GetProductString(candidate, product, product.Capacity);
+        var productName = product.ToString();
 
         if (!HidD_GetPreparsedData(candidate, out var preparsed))
         {
@@ -292,6 +311,19 @@ public static class HidMouseWriter
         var caps = new HIDP_CAPS { Reserved = new ushort[17] };
         HidP_GetCaps(preparsed, ref caps);
         HidD_FreePreparsedData(preparsed);
+
+        seen?.Add($"{attributes.VendorId:X4}:{attributes.ProductId:X4} f={caps.FeatureReportByteLength} «{productName}»");
+
+        bool named = productName.Contains("MBF", StringComparison.OrdinalIgnoreCase) ||
+                     productName.Contains("Gaming", StringComparison.OrdinalIgnoreCase) ||
+                     productName.Contains("Mouse", StringComparison.OrdinalIgnoreCase) ||
+                     productName.Contains("MouseMackros", StringComparison.OrdinalIgnoreCase);
+
+        if (!known && !named)
+        {
+            CloseHandle(candidate);
+            return false;
+        }
 
         if (caps.FeatureReportByteLength < 32)
         {
@@ -308,7 +340,7 @@ public static class HidMouseWriter
         }
 
         handle = candidate;
-        detail = $"VID={attributes.VendorId:X4} PID={attributes.ProductId:X4} feature={caps.FeatureReportByteLength}";
+        detail = $"VID={attributes.VendorId:X4} PID={attributes.ProductId:X4} feature={caps.FeatureReportByteLength} product={productName}";
         return true;
     }
 }
