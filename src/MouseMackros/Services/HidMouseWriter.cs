@@ -362,6 +362,7 @@ public static class HidMouseWriter
         }
 
         bool known = (attributes.VendorId == 0x04F3 && attributes.ProductId == 0x026E) ||
+                     (attributes.VendorId == 0x04F3 && attributes.ProductId == 0x026F) ||
                      (attributes.VendorId == 0x1A2C && attributes.ProductId == 0x4C5E);
 
         var product = new System.Text.StringBuilder(256);
