@@ -681,9 +681,15 @@ public partial class MainWindow : Window
         RefreshVendorStatus();
     }
 
-    private void WritePsfToMouse_Click(object sender, RoutedEventArgs e)
+    private void HidDiagnostics_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
+        var text = HidMouseWriter.ListDevices();
+        ProfileStore.Log("[hid] " + text.Replace("\n", " | "));
+        AppDialog.ShowInfo(text, "HID-диагностика");
+    }
+
+    private void WritePsfToMouse_Click(object sender, RoutedEventArgs e)
+    {        var dialog = new OpenFileDialog
         {
             Title = "Записать раскладку в мышь",
             Filter = "Раскладка MBF1000PRO (*.psf)|*.psf|Все файлы (*.*)|*.*"

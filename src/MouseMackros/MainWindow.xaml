@@ -51,6 +51,7 @@
             <MenuItem Header="Создать профиль для мыши (.psf)…" Click="GeneratePsf_Click" />
             <MenuItem Header="Записать нейтральную раскладку в мышь" Click="WriteMouse_Click" />
             <MenuItem Header="Записать .psf в мышь…" Click="WritePsfToMouse_Click" />
+            <MenuItem Header="HID-диагностика мыши…" Click="HidDiagnostics_Click" />
             <MenuItem Header="Загрузить раскладку .psf…" Click="LoadPsf_Click" />
             <MenuItem Header="Папка с профилями" Click="DataFolder_Click" />
             <Separator />

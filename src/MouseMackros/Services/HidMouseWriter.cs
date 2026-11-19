@@ -150,7 +150,7 @@ public static class HidMouseWriter
                     return new Result(false, "HID-отчёт отправлен, но устройство его не приняло.");
             }
 
-            return new Result(true, "Нейтральная раскладка записана в мышь.");
+            return new Result(true, "Нейтральная раскладка записана в мышь.\n\n" + info);
         }
         catch (Exception ex)
         {
@@ -189,6 +189,72 @@ public static class HidMouseWriter
             Packet(0x03, 0x02, 0x2D, keys, 0, 8, 32),
             Packet(0x04, 0x12, 0x19, keys, 9, 15, 32)
         };
+    }
+
+    /// <summary>Lists HID collections that look like the mouse config channel.</summary>
+    public static string ListDevices()
+    {
+        var lines = new List<string>();
+        HidD_GetHidGuid(out var guid);
+
+        try
+        {
+            int status = CM_Get_Device_Interface_List_SizeW(out int length, ref guid, null, 0);
+            if (status != 0 || length <= 1) return "CfgMgr32 не вернул список HID.";
+
+            var buffer = new char[length];
+            status = CM_Get_Device_Interface_ListW(ref guid, null, buffer, buffer.Length, 0);
+            if (status != 0) return "CfgMgr32: status=" + status;
+
+            foreach (var path in new string(buffer).Split('\0', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var handle = CreateFile(path, GENERIC_READ | GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
+                if (handle == new IntPtr(-1))
+                {
+                    lines.Add("нет доступа: " + Path.GetFileName(path));
+                    continue;
+                }
+
+                try
+                {
+                    var attributes = new HIDD_ATTRIBUTES { Size = Marshal.SizeOf<HIDD_ATTRIBUTES>() };
+                    if (!HidD_GetAttributes(handle, ref attributes)) continue;
+
+                    var product = new System.Text.StringBuilder(256);
+                    HidD_GetProductString(handle, product, product.Capacity);
+
+                    int feature = 0;
+                    if (HidD_GetPreparsedData(handle, out var preparsed))
+                    {
+                        var caps = new HIDP_CAPS { Reserved = new ushort[17] };
+                        HidP_GetCaps(preparsed, ref caps);
+                        feature = caps.FeatureReportByteLength;
+                        HidD_FreePreparsedData(preparsed);
+                    }
+
+                    bool ack = false;
+                    if (feature >= 32)
+                    {
+                        var probe = new byte[32];
+                        probe[0] = 0x06;
+                        ack = HidD_GetFeature(handle, probe, probe.Length) && probe[1] == 0x01;
+                    }
+
+                    lines.Add($"{attributes.VendorId:X4}:{attributes.ProductId:X4} feature={feature} ack={ack} «{product}»");
+                }
+                finally
+                {
+                    CloseHandle(handle);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            lines.Add("ошибка: " + ex.Message);
+        }
+
+        return lines.Count == 0 ? "HID-устройства не найдены." : string.Join("\n", lines);
     }
 
     private static IntPtr FindDevice(out string info)
