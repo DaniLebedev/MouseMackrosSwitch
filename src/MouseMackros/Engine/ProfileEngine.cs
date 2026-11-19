@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using MouseMackros.Input;
 using MouseMackros.Interop;
 using MouseMackros.Model;
+using MouseMackros.Services;
 
 namespace MouseMackros.Engine;
 
@@ -49,8 +50,11 @@ public sealed class ProfileEngine : IDisposable
         _executor.Error += msg => Error?.Invoke(this, msg);
     }
 
-    public void Start() => _watcher.Start();
-
+    public void Start()
+    {
+        _watcher.Start();
+        ProfileStore.Log($"[start] профиль «{ActiveProfile.Name}»");
+    }
     public void ApplyConfig(AppConfig config)
     {
         Config = config;
@@ -109,6 +113,7 @@ public sealed class ProfileEngine : IDisposable
         var profile = Resolve(info);
         if (!ReferenceEquals(profile, ActiveProfile))
         {
+            ProfileStore.Log($"[profile] «{profile.Name}» ← {info.ProcessName} / {info.Title}");
             ActiveProfile = profile;
             ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -199,6 +204,9 @@ public sealed class ProfileEngine : IDisposable
         var trigger = Trigger.Key(e.Combo);
         var key = trigger.ToString();
 
+        if (e.IsDown && e.Modifiers.Count >= 3)
+            ProfileStore.Log($"[key] {trigger.DisplayName} профиль={ActiveProfile.Name}");
+
         if (LearnMode)
         {
             InputObserved?.Invoke(this, new InputEventInfo(DateTime.Now, "Клавиатура", trigger.DisplayName, key));
@@ -224,6 +232,7 @@ public sealed class ProfileEngine : IDisposable
         var binding = MapFor(ActiveProfile).GetValueOrDefault(key);
         if (binding is null) return;
 
+        ProfileStore.Log($"[action] {ActiveProfile.Name} | {trigger.DisplayName} | {binding.Action.Kind} | {binding.Label}");
         InputObserved?.Invoke(this, new InputEventInfo(DateTime.Now, "Клавиатура", trigger.DisplayName, key));
 
         if (binding.Action.Kind == ActionKind.PassThrough) return;
@@ -260,6 +269,7 @@ public sealed class ProfileEngine : IDisposable
         if (binding is null) return;
         if (binding.Action.Kind == ActionKind.PassThrough) return;
 
+        ProfileStore.Log($"[action] {ActiveProfile.Name} | {e.DisplayName} | {binding.Action.Kind} | {binding.Label}");
         e.Handled = true;
         if (e.IsDown) _executor.ExecuteStart(ActiveProfile.Id + "|" + key, binding.Action);
         else _executor.ExecuteEnd(ActiveProfile.Id + "|" + key, binding.Action);

@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using MouseMackros.Input;
 using MouseMackros.Model;
 using MouseMackros.Interop;
+using MouseMackros.Services;
 
 namespace MouseMackros.Engine;
 
@@ -233,6 +234,7 @@ public sealed class ActionExecutor : IDisposable
     private async Task RunMacroAsync(ActionSpec action, CancellationToken token)
     {
         var steps = MacroScript.Parse(action.Script);
+        ProfileStore.Log($"[macro] {steps.Count} шагов: {action.Script?.Replace("\n", " | ")}");
         if (steps.Count == 0) return;
         InputSender.ReleaseHeldModifiers();
 
@@ -280,6 +282,11 @@ public sealed class ActionExecutor : IDisposable
                         InputSender.MouseButton(step.Key!, false);
                         break;
                 }
+
+                // Give the target application time to process each step; vendor
+                // macros are played with a short pause between key events.
+                if (step.Kind != "delay")
+                    await Task.Delay(20, token);
             }
         }
     }

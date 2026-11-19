@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Text;
+using System.Windows.Threading;
 using MouseMackros.Interop;
+using MouseMackros.Services;
 
 namespace MouseMackros.Engine;
 
@@ -10,8 +12,12 @@ public sealed record WindowInfo(IntPtr Handle, string ProcessName, string? Proce
 public sealed class WindowWatcher : IDisposable
 {
     private readonly NativeMethods.WinEventProc _proc;
+    private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
+    private readonly object _gate = new();
     private IntPtr _hook;
     private bool _started;
+    private System.Threading.Timer? _timer;
+    private string _lastKey = "";
 
     public event EventHandler<WindowInfo>? ForegroundChanged;
 
@@ -29,8 +35,33 @@ public sealed class WindowWatcher : IDisposable
             IntPtr.Zero, _proc, 0, 0,
             NativeMethods.WINEVENT_OUTOFCONTEXT | NativeMethods.WINEVENT_SKIPOWNPROCESS);
 
-        var current = GetForeground();
-        if (current is not null) ForegroundChanged?.Invoke(this, current);
+        // A background poll makes switching deterministic even if the shell does
+        // not deliver WinEvent callbacks.
+        _timer = new System.Threading.Timer(_ => Poll(), null, 0, 300);
+    }
+
+    private void Poll()
+    {
+        try
+        {
+            var hwnd = NativeMethods.GetForegroundWindow();
+            var info = Describe(hwnd);
+            if (info is null) return;
+
+            var key = info.Handle + "|" + info.ProcessName;
+            lock (_gate)
+            {
+                if (key == _lastKey) return;
+                _lastKey = key;
+            }
+
+            ProfileStore.Log($"[foreground] {info.ProcessName} | {info.Title}");
+            _dispatcher.BeginInvoke(new Action(() => ForegroundChanged?.Invoke(this, info)));
+        }
+        catch
+        {
+            // ignore transient failures while windows are closing
+        }
     }
 
     private void OnWinEvent(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild,
@@ -38,7 +69,10 @@ public sealed class WindowWatcher : IDisposable
     {
         if (eventType != NativeMethods.EVENT_SYSTEM_FOREGROUND) return;
         var info = Describe(hwnd);
-        if (info is not null) ForegroundChanged?.Invoke(this, info);
+        if (info is null) return;
+
+        lock (_gate) _lastKey = info.Handle + "|" + info.ProcessName;
+        ForegroundChanged?.Invoke(this, info);
     }
 
     public WindowInfo? GetForeground() => Describe(NativeMethods.GetForegroundWindow());
@@ -85,6 +119,8 @@ public sealed class WindowWatcher : IDisposable
 
     public void Dispose()
     {
+        _timer?.Dispose();
+        _timer = null;
         if (_hook != IntPtr.Zero)
         {
             NativeMethods.UnhookWinEvent(_hook);
