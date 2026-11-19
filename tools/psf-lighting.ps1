@@ -30,7 +30,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Profile = (Join-Path $env:APPDATA 'GamingMouseData20250321B\config\default2.psf'),
+    [string]$Profile = '',
     [int]$Row = 2,
     [string]$Color = '8000FF',
     [int]$Led = -1,
@@ -47,6 +47,20 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Resolve the ACTIVE profile from config.ini when -Profile is omitted.
+if ([string]::IsNullOrWhiteSpace($Profile)) {
+    $configPath = Join-Path $env:APPDATA 'GamingMouseData20250321B\config\config.ini'
+    $slot = 0
+    if (Test-Path -LiteralPath $configPath) {
+        $line = Get-Content $configPath -Encoding Unicode |
+            Where-Object { $_ -match '^\s*CurrentProfile\s*=\s*(\d+)' } |
+            Select-Object -First 1
+        if ($line -match '^\s*CurrentProfile\s*=\s*(\d+)') { $slot = [int]$matches[1] }
+    }
+    $Profile = Join-Path (Split-Path -Parent $configPath) "default$slot.psf"
+    Write-Host "Active profile: CurrentProfile=$slot -> $Profile" -ForegroundColor Yellow
+}
 
 function Get-Field([string]$text, [string]$name) {
     $m = [regex]::Match($text, "(?m)^\s*$name=(.*)$")
@@ -96,7 +110,7 @@ if ($Restore) {
     return
 }
 
-if ((Get-Process GamingMS -ErrorAction SilentlyContinue) -and !$Force) {
+if (!$Show -and (Get-Process GamingMS -ErrorAction SilentlyContinue) -and !$Force) {
     throw "MBF1000PRO is running. Close it first (or pass -Force if you know what you are doing)."
 }
 
