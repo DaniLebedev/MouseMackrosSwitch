@@ -199,9 +199,9 @@
 
                         <StackPanel Grid.Row="2" Margin="4,10,4,0">
                             <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,0,0,10" />
-                            <TextBlock Text="1) Примените MouseMackros.psf в MBF1000PRO."
+                            <TextBlock Text="1) Подключите мышь (USB или ресивер)."
                                        Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" />
-                            <TextBlock Text="2) Загрузите .psf в профиль."
+                            <TextBlock Text="2) Нажмите «Настроить мышь» — запишется нейтральная раскладка."
                                        Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap"
                                        Margin="0,2,0,10" />
                             <Button Style="{StaticResource GhostButton}" Content="Настройки…"

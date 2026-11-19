@@ -181,30 +181,9 @@ public partial class MainWindow : Window
 
     private void RefreshVendorStatus()
     {
-        if (_hidLayoutWritten)
-        {
-            VendorBanner.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var status = VendorSetup.Detect();
-        if (status is null || status.UsesNeutralLayout)
-        {
-            VendorBanner.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        VendorBanner.Visibility = Visibility.Visible;
-        var known = VendorSetup.Identify(status.ActivePath,
-            _app.Config.Profiles.Select(p => p.VendorProfilePath));
-        var activeName = known ?? status.ProfileName;
-
-        VendorStatusText.Text = status.Known
-            ? $"На мыши раскладка «{activeName}». Импортируйте MouseMackros.psf в активный профиль MBF1000PRO."
-            : "Не удалось определить раскладку мыши. Примените MouseMackros.psf в MBF1000PRO.";
-        VendorStatusText.ToolTip = string.IsNullOrWhiteSpace(status.ActivePath)
-            ? null
-            : status.ActivePath;
+        // The neutral layout is written over HID, so the vendor profile files are
+        // no longer the source of truth and their warning would be misleading.
+        VendorBanner.Visibility = Visibility.Collapsed;
     }
 
     private void RefreshApps()

@@ -1,0 +1,96 @@
+{
+  "Id": "3d9ef6ea1af84c338c239efd4ff2c0a3",
+  "Name": "Firefox",
+  "Accent": "#39B7C4",
+  "Applications": [
+    "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+  ],
+  "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\firefox.psf",
+  "PsfRevision": 2,
+  "Match": {
+    "Processes": [
+      "firefox"
+    ],
+    "Priority": 10
+  },
+  "Bindings": [
+    {
+      "Button": 1,
+      "Trigger": "key:Ctrl+Shift+Alt+A",
+      "Label": "WIN+D",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Win+D",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 3,
+      "Trigger": "key:Ctrl+Shift+Alt+C",
+      "Label": "tab right",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "down Ctrl\ndown Shift\ndown Tab\nup Tab\nup Shift\nup Ctrl",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 4,
+      "Trigger": "key:Ctrl+Shift+Alt+D",
+      "Label": "Forward",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "press mouse:x2",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 6,
+      "Trigger": "key:Ctrl+Shift+Alt+F",
+      "Label": "tab left",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "down Ctrl\ndown Tab\nup Tab\nup Ctrl",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 9,
+      "Trigger": "key:Ctrl+Shift+Alt+I",
+      "Label": "Backward",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "press mouse:x1",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 10,
+      "Trigger": "key:Ctrl+Shift+Alt+J",
+      "Label": "Fire Key (не поддерживается)",
+      "Action": {
+        "Kind": "Block",
+        "Value": "",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    }
+  ],
+  "IsFallback": false
+}

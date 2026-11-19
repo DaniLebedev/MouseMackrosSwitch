@@ -83,15 +83,14 @@ public sealed class WindowWatcher : IDisposable
         try
         {
             NativeMethods.GetWindowThreadProcessId(hwnd, out var pid);
-            if (pid == 0) return null;
 
-            var path = NativeMethods.GetProcessPath(pid);
+            var path = pid == 0 ? null : NativeMethods.GetProcessPath(pid);
             string processName;
             if (!string.IsNullOrEmpty(path))
             {
                 processName = Path.GetFileNameWithoutExtension(path);
             }
-            else
+            else if (pid != 0)
             {
                 try
                 {
@@ -101,6 +100,10 @@ public sealed class WindowWatcher : IDisposable
                 {
                     processName = "pid" + pid;
                 }
+            }
+            else
+            {
+                processName = "unknown";
             }
 
             var title = new StringBuilder(512);
