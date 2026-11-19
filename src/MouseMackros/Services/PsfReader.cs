@@ -73,7 +73,7 @@ public sealed class PsfFile
 public static class PsfReader
 {
     /// <summary>Bump when the action decoder learns new .psf features.</summary>
-    public const int CurrentRevision = 2;
+    public const int CurrentRevision = 3;
 
     private const int TypeKeyboard = 0x70;
     private const int TypeMouse = 0x10;
@@ -245,6 +245,14 @@ public static class PsfReader
     private static ActionSpec? DecodeMacro(Block block)
     {
         var lines = new List<string>();
+        var macroName = (block.MacroName ?? block.Name).ToLowerInvariant();
+
+        // Vendor tab macros are known by name; decode their intent instead of
+        // relying on the ambiguous 0x09 byte (Tab vs digit 9).
+        if (macroName.Contains("tab right"))
+            return new ActionSpec { Kind = ActionKind.Keys, Value = "Ctrl+Tab" };
+        if (macroName.Contains("tab left"))
+            return new ActionSpec { Kind = ActionKind.Keys, Value = "Ctrl+Shift+Tab" };
 
         if (block.MacroCount > 0 && !string.IsNullOrWhiteSpace(block.AllAction))
         {

@@ -103,19 +103,48 @@ internal static class InputSender
         Send(input);
     }
 
+    private static readonly int[] ModifierKeys =
+    {
+        NativeMethods.VK_LSHIFT, NativeMethods.VK_RSHIFT,
+        NativeMethods.VK_LCONTROL, NativeMethods.VK_RCONTROL,
+        NativeMethods.VK_LMENU, NativeMethods.VK_RMENU,
+        NativeMethods.VK_LWIN, NativeMethods.VK_RWIN
+    };
+
+    /// <summary>True while any Ctrl/Shift/Alt/Win key is logically down.</summary>
+    public static bool AnyModifierDown()
+    {
+        foreach (var vk in ModifierKeys)
+            if ((NativeMethods.GetAsyncKeyState(vk) & 0x8000) != 0) return true;
+        return false;
+    }
+
+    /// <summary>Held modifiers as readable text, for diagnostics.</summary>
+    public static string DescribeHeldModifiers()
+    {
+        var names = new List<string>();
+        foreach (var vk in ModifierKeys)
+        {
+            if ((NativeMethods.GetAsyncKeyState(vk) & 0x8000) == 0) continue;
+            var name = vk switch
+            {
+                NativeMethods.VK_LSHIFT or NativeMethods.VK_RSHIFT => "Shift",
+                NativeMethods.VK_LCONTROL or NativeMethods.VK_RCONTROL => "Ctrl",
+                NativeMethods.VK_LMENU or NativeMethods.VK_RMENU => "Alt",
+                _ => "Win"
+            };
+            if (!names.Contains(name)) names.Add(name);
+        }
+        return string.Join("+", names);
+    }
+
     /// <summary>
     /// Releases modifiers the user is physically holding so that an injected
     /// combination is not polluted by them (e.g. trigger Ctrl+Alt+Shift+A -&gt; action Alt+Left).
     /// </summary>
     public static void ReleaseHeldModifiers()
     {
-        foreach (var vk in new[]
-                 {
-                     NativeMethods.VK_LSHIFT, NativeMethods.VK_RSHIFT,
-                     NativeMethods.VK_LCONTROL, NativeMethods.VK_RCONTROL,
-                     NativeMethods.VK_LMENU, NativeMethods.VK_RMENU,
-                     NativeMethods.VK_LWIN, NativeMethods.VK_RWIN
-                 })
+        foreach (var vk in ModifierKeys)
         {
             if ((NativeMethods.GetAsyncKeyState(vk) & 0x8000) != 0)
             {

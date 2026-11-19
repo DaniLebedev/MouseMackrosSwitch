@@ -7,7 +7,7 @@
   ],
   "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
   "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\firefox.psf",
-  "PsfRevision": 2,
+  "PsfRevision": 3,
   "Match": {
     "Processes": [
       "firefox"
@@ -32,9 +32,8 @@
       "Trigger": "key:Ctrl+Shift+Alt+C",
       "Label": "tab right",
       "Action": {
-        "Kind": "Macro",
-        "Value": "",
-        "Script": "down Ctrl\ndown Shift\ndown Tab\nup Tab\nup Shift\nup Ctrl",
+        "Kind": "Keys",
+        "Value": "Ctrl+Tab",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -58,9 +57,8 @@
       "Trigger": "key:Ctrl+Shift+Alt+F",
       "Label": "tab left",
       "Action": {
-        "Kind": "Macro",
-        "Value": "",
-        "Script": "down Ctrl\ndown Tab\nup Tab\nup Ctrl",
+        "Kind": "Keys",
+        "Value": "Ctrl+Shift+Tab",
         "Mode": "Once",
         "Repeat": 0
       },

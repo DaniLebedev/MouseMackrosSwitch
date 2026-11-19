@@ -138,9 +138,9 @@ public sealed class ActionExecutor : IDisposable
                         return;
 
                     case ActionKind.Macro:
+                        await SettleTriggerAsync(CancellationToken.None);
                         if (action.Mode == MacroMode.Once)
                         {
-                            await Task.Delay(8);
                             await RunMacroAsync(action, CancellationToken.None);
                         }
                         else if (action.Mode == MacroMode.Hold)
@@ -154,7 +154,7 @@ public sealed class ActionExecutor : IDisposable
                         return;
 
                     default:
-                        await Task.Delay(8);
+                        await SettleTriggerAsync(CancellationToken.None);
                         await RunSimpleAsync(action);
                         return;
                 }
@@ -229,6 +229,33 @@ public sealed class ActionExecutor : IDisposable
                 try { await Task.Delay(10, token); } catch { break; }
             }
         }
+    }
+
+    /// <summary>
+    /// The mouse sends its trigger chord as a series of HID reports, so Ctrl, Shift
+    /// and Alt may still be physically held when the action starts. Waiting for the
+    /// chord to finish (and releasing leftovers) keeps the injected action clean:
+    /// otherwise Ctrl+Tab turns into Ctrl+Shift+Tab, or Ctrl+Shift+Tab does nothing.
+    /// </summary>
+    private static async Task SettleTriggerAsync(CancellationToken token)
+    {
+        string held = InputSender.DescribeHeldModifiers();
+        var deadline = Environment.TickCount64 + 300;
+
+        while (InputSender.AnyModifierDown() && Environment.TickCount64 < deadline)
+        {
+            try { await Task.Delay(5, token); }
+            catch (OperationCanceledException) { break; }
+        }
+
+        InputSender.ReleaseHeldModifiers();
+
+        if (held.Length > 0)
+            ProfileStore.Log($"[macro] зажатые модификаторы до действия: {held}");
+
+        // Let the synthetic releases reach the target window before the action.
+        try { await Task.Delay(10, token); }
+        catch (OperationCanceledException) { }
     }
 
     private async Task RunMacroAsync(ActionSpec action, CancellationToken token)

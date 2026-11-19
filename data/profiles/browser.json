@@ -6,8 +6,8 @@
     "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
   ],
   "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\Def.psf",
-  "PsfRevision": 2,
+  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\firefox.psf",
+  "PsfRevision": 3,
   "Match": {
     "Processes": [
       "chrome",
@@ -62,24 +62,12 @@
       "Enabled": true
     },
     {
-      "Button": 2,
-      "Trigger": "key:Ctrl+Shift+Alt+B",
-      "Label": "2",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "2",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
       "Button": 3,
       "Trigger": "key:Ctrl+Shift+Alt+C",
-      "Label": "1",
+      "Label": "tab right",
       "Action": {
         "Kind": "Keys",
-        "Value": "1",
+        "Value": "Ctrl+Tab",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -99,48 +87,12 @@
       "Enabled": true
     },
     {
-      "Button": 5,
-      "Trigger": "key:Ctrl+Shift+Alt+E",
-      "Label": "4",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "4",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
       "Button": 6,
       "Trigger": "key:Ctrl+Shift+Alt+F",
-      "Label": "3",
+      "Label": "tab left",
       "Action": {
         "Kind": "Keys",
-        "Value": "3",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
-      "Button": 7,
-      "Trigger": "key:Ctrl+Shift+Alt+G",
-      "Label": "6",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "6",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
-      "Button": 8,
-      "Trigger": "key:Ctrl+Shift+Alt+H",
-      "Label": "5",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "5",
+        "Value": "Ctrl+Shift+Tab",
         "Mode": "Once",
         "Repeat": 0
       },

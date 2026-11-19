@@ -236,15 +236,12 @@ if (vendor is not null)
         vendor.ForButton(15)?.Action?.Value ?? "null");
 
     var macro = vendor.ForButton(3)?.Action;
-    Check("vendor psf: макрос вкладок разобран", macro is { Kind: ActionKind.Macro },
-        macro?.Kind.ToString() ?? "null");
-    Check("vendor psf: макрос содержит Ctrl+Tab",
-        macro?.Script?.Contains("Tab", StringComparison.OrdinalIgnoreCase) == true &&
-        macro.Script.Contains("Ctrl", StringComparison.OrdinalIgnoreCase),
-        macro?.Script ?? "null");
-    Check("vendor psf: последовательность макроса",
-        macro?.Script == "down Ctrl\ndown Shift\ndown Tab\nup Tab\nup Shift\nup Ctrl",
-        macro?.Script ?? "null");
+    Check("vendor psf: вкладка вправо → Ctrl+Tab",
+        macro is { Kind: ActionKind.Keys, Value: "Ctrl+Tab" },
+        $"{macro?.Kind} {macro?.Value}");
+    Check("vendor psf: вкладка влево → Ctrl+Shift+Tab",
+        vendor.ForButton(6)?.Action is { Kind: ActionKind.Keys, Value: "Ctrl+Shift+Tab" },
+        $"{vendor.ForButton(6)?.Action?.Kind} {vendor.ForButton(6)?.Action?.Value}");
     Check("vendor psf: подпись макроса", vendor.ForButton(3)?.Label == "tab right",
         vendor.ForButton(3)?.Label ?? "null");
     Check("vendor psf: запуск приложения",
