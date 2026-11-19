@@ -713,6 +713,25 @@ public partial class MainWindow : Window
         AppDialog.ShowInfo(result.Message, "Готово");
     }
 
+    private void WriteMouseAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (!AppDialog.Confirm(
+                "Записать нейтральную раскладку Ctrl+Alt+Shift+A…M во ВСЕ профили мыши?\n\n" +
+                "Это заменит кнопочные раскладки во всех слотах. Профили MouseMackros не изменятся.",
+                "Настройка мыши"))
+            return;
+
+        var result = HidMouseWriter.WriteNeutralAllProfiles();
+        if (!result.Success)
+        {
+            AppDialog.ShowError(result.Message, "Не удалось записать раскладку");
+            return;
+        }
+
+        LastInputText.Text = "Нейтральная раскладка записана во все профили мыши";
+        AppDialog.ShowInfo(result.Message, "Готово");
+    }
+
     private void WriteMouse_Click(object sender, RoutedEventArgs e)
     {
         if (!AppDialog.Confirm(

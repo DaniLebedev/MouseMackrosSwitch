@@ -90,6 +90,65 @@ public static class HidMouseWriter
     /// <summary>Writes the neutral A..M layout (buttons 1..11,15,16).</summary>
     public static Result WriteNeutral()
     {
+        return Write(NeutralValues());
+    }
+
+    /// <summary>
+    /// Writes neutral keys into every vendor profile slot, so switching profiles
+    /// in MBF1000PRO can no longer bring back a different button layout.
+    /// </summary>
+    public static Result WriteNeutralAllProfiles()
+    {
+        var handle = FindDevice(out string info);
+        if (handle == IntPtr.Zero)
+            return new Result(false, "Мышь MBF1000PRO не найдена по HID.\n\n" + info);
+
+        try
+        {
+            var values = NeutralValues();
+            if (!BuildKeys(values, out var keys, out var error))
+                return new Result(false, error);
+
+            var packets = BuildPackets(keys);
+
+            // Captured vendor "select profile" commands: profile 0, 1, 2.
+            var selects = new[]
+            {
+                new byte[] { 0x06, 0x0A, 0x18, 0x01, 0x29, 0x00 },
+                new byte[] { 0x06, 0x0A, 0x0A, 0x01, 0x1C, 0x01 },
+                new byte[] { 0x06, 0x0A, 0x1B, 0x01, 0x2E, 0x02 }
+            };
+
+            foreach (var select in selects)
+            {
+                var report = new byte[32];
+                Array.Copy(select, report, select.Length);
+                HidD_SetFeature(handle, report, report.Length);
+                Thread.Sleep(80);
+
+                foreach (var packet in packets)
+                {
+                    if (!HidD_SetFeature(handle, packet, packet.Length))
+                        return new Result(false, "Устройство не приняло пакет раскладки.");
+                    Thread.Sleep(30);
+                }
+            }
+
+            return new Result(true,
+                "Нейтральная раскладка записана во все профили мыши.\n\n" + info);
+        }
+        catch (Exception ex)
+        {
+            return new Result(false, "Ошибка записи в HID: " + ex.Message);
+        }
+        finally
+        {
+            CloseHandle(handle);
+        }
+    }
+
+    private static string[] NeutralValues()
+    {
         var values = new string[16];
         values[0] = "100100";
         values[1] = "100200";
@@ -101,7 +160,35 @@ public static class HidMouseWriter
                 values[button.KeyIndex] = PsfGenerator.EncodeCombo(0x07, PsfGenerator.LetterCode(letter));
         }
 
-        return Write(values);
+        return values;
+    }
+
+    private static bool BuildKeys(string[] values, out byte[][] keys, out string error)
+    {
+        keys = new byte[16][];
+        error = "";
+
+        for (int i = 0; i < 16; i++)
+        {
+            var raw = (values[i] ?? "").Trim();
+            if (raw.Length != 6)
+            {
+                error = $"Некорректное значение Key{i}: «{raw}».";
+                return false;
+            }
+
+            try
+            {
+                keys[i] = Convert.FromHexString(raw);
+            }
+            catch
+            {
+                error = $"Некорректное значение Key{i}: «{raw}».";
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Writes the KeyN values from a .psf file (buttons only for now).</summary>
