@@ -31,7 +31,6 @@ public partial class MainWindow : Window
 
     private Profile? _selected;
     private bool _suppress;
-    private bool _hidLayoutWritten;
 
     public MainWindow(App app)
     {
@@ -695,8 +694,6 @@ public partial class MainWindow : Window
         }
 
         LastInputText.Text = "Нейтральная раскладка записана в мышь";
-        _hidLayoutWritten = true;
-        RefreshVendorStatus();
         AppDialog.ShowInfo(result.Message, "Готово");
     }
 
