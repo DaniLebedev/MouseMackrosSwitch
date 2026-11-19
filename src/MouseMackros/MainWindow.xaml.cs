@@ -693,9 +693,27 @@ public partial class MainWindow : Window
         RefreshVendorStatus();
     }
 
-    private void LoadPsf_Click(object sender, RoutedEventArgs e)
+    private void WriteMouse_Click(object sender, RoutedEventArgs e)
     {
-        if (_selected is null) return;
+        if (!AppDialog.Confirm(
+                "Записать нейтральную раскладку Ctrl+Alt+Shift+A…M прямо в мышь?\n\n" +
+                "Текущие назначения кнопок будут заменены. Профили MouseMackros не изменятся.",
+                "Настройка мыши"))
+            return;
+
+        var result = HidMouseWriter.WriteNeutral();
+        if (!result.Success)
+        {
+            AppDialog.ShowError(result.Message, "Не удалось записать раскладку");
+            return;
+        }
+
+        LastInputText.Text = "Нейтральная раскладка записана в мышь";
+        AppDialog.ShowInfo(result.Message, "Готово");
+    }
+
+    private void LoadPsf_Click(object sender, RoutedEventArgs e)
+    {        if (_selected is null) return;
 
         var dialog = new OpenFileDialog
         {

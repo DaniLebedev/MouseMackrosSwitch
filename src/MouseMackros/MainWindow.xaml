@@ -49,6 +49,7 @@
             <MenuItem Header="Сохранить профиль в файл…" Click="ExportProfile_Click" />
             <Separator />
             <MenuItem Header="Создать профиль для мыши (.psf)…" Click="GeneratePsf_Click" />
+            <MenuItem Header="Записать нейтральную раскладку в мышь" Click="WriteMouse_Click" />
             <MenuItem Header="Загрузить раскладку .psf…" Click="LoadPsf_Click" />
             <MenuItem Header="Папка с профилями" Click="DataFolder_Click" />
             <Separator />
@@ -330,6 +331,9 @@
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <TextBlock x:Name="PsfSourceText" Style="{StaticResource MutedText}" FontSize="11"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button Style="{StaticResource GhostButton}" Content="Настроить мышь"
+                                        Click="WriteMouse_Click" Padding="8,4" Margin="0,0,6,0"
+                                        ToolTip="Записать Ctrl+Alt+Shift+A…M напрямую в мышь" />
                                 <Button Style="{StaticResource GhostButton}" Content="Загрузить .psf…"
                                         Click="LoadPsf_Click" Padding="8,4" />
                             </StackPanel>
