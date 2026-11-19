@@ -289,7 +289,14 @@ public sealed class ProfileEngine : IDisposable
         if (!Effective) return;
 
         var binding = MapFor(ActiveProfile).GetValueOrDefault(key);
-        if (binding is null) return;
+        if (binding is null)
+        {
+            // Ctrl+Alt+Shift+A..M is MouseMackros' own channel. If the current
+            // profile has no action for a button, swallow the chord instead of
+            // leaking it into the application.
+            if (IsNeutralTrigger(trigger)) e.Handled = true;
+            return;
+        }
 
         ProfileStore.Log($"[action] {ActiveProfile.Name} | {trigger.DisplayName} | {binding.Action.Kind} | {binding.Label}");
         InputObserved?.Invoke(this, new InputEventInfo(DateTime.Now, "Клавиатура", trigger.DisplayName, key));
@@ -299,6 +306,20 @@ public sealed class ProfileEngine : IDisposable
 
         if (e.IsDown) _executor.ExecuteStart(ActiveProfile.Id + "|" + key, binding.Action);
         else _executor.ExecuteEnd(ActiveProfile.Id + "|" + key, binding.Action);
+    }
+
+    private static bool IsNeutralTrigger(Trigger trigger)
+    {
+        var text = trigger.ToString();
+        foreach (var info in MouseButtonMap.Editable)
+        {
+            if (string.Equals(MouseButtonMap.TriggerFor(info.Number), text,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private bool TryParseHotkey(string combo, out HashSet<int> modifiers, out int vk)
