@@ -357,6 +357,26 @@ Check("storage: путь .psf сохранён",
     reloaded.Profiles.Any(p => p.VendorProfilePath == @"C:\psf\MouseMackros.psf"));
 Check("storage: fallback восстановлен", reloaded.FallbackProfile.IsFallback);
 
+var extraConfig = new AppConfig
+{
+    Profiles =
+    {
+        new Profile
+        {
+            Id = "extra", Name = "Extra",
+            Bindings =
+            {
+                new MouseMackros.Model.Binding { Button = 0, Trigger = "wheel:Up" },
+                new MouseMackros.Model.Binding { Button = 1, Trigger = MouseButtonMap.TriggerFor(1) }
+            }
+        }
+    }
+};
+ProfileStore.Normalize(extraConfig);
+Check("storage: привязки вне физических кнопок удаляются",
+    extraConfig.Profiles[0].Bindings.Count == 1 && extraConfig.Profiles[0].Bindings[0].Button == 1,
+    extraConfig.Profiles[0].Bindings.Count.ToString());
+
 // legacy config.json
 var legacyDir = Path.Combine(Path.GetTempPath(), "mm_selftest_legacy_" + Guid.NewGuid().ToString("n"));
 Directory.CreateDirectory(legacyDir);

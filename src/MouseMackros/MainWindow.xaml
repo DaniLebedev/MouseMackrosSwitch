@@ -430,50 +430,6 @@
                                                    TextAlignment="Center" MaxWidth="520" />
                                     </StackPanel>
                                 </Border>
-
-                                <StackPanel x:Name="OtherSection" Margin="0,18,2,0" Visibility="Collapsed">
-                                    <TextBlock Text="ДРУГИЕ ПРИВЯЗКИ" Style="{StaticResource SectionTitle}" />
-                                    <ItemsControl x:Name="OtherList">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="#171B21" BorderBrush="{StaticResource BorderBrush}"
-                                                        BorderThickness="1" CornerRadius="8" Padding="12,8"
-                                                        Margin="0,0,0,5">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="1*" />
-                                                            <ColumnDefinition Width="1.4*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
-                                                                       TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Text="{Binding TriggerText}"
-                                                                       Style="{StaticResource MutedText}" FontSize="11"
-                                                                       Margin="0,2,0,0" />
-                                                        </StackPanel>
-                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center"
-                                                                    Margin="8,0,10,0">
-                                                            <TextBlock Text="{Binding ActionSummary}"
-                                                                       TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Text="{Binding ActionDetail}"
-                                                                       Style="{StaticResource MutedText}" FontSize="11"
-                                                                       Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
-                                                        </StackPanel>
-                                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                                    VerticalAlignment="Center">
-                                                            <Button Style="{StaticResource GhostButton}" Content="Тест"
-                                                                    Padding="8,4" Click="TestBinding_Click" />
-                                                            <Button Style="{StaticResource GhostButton}" Content="Подпись…"
-                                                                    Padding="8,4" Margin="2,0,0,0"
-                                                                    Click="Label_Click" />
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>

@@ -1,16 +1,16 @@
 {
   "Id": "3d9ef6ea1af84c338c239efd4ff2c0a3",
-  "Name": "Firefox",
+  "Name": "OpenCode",
   "Accent": "#39B7C4",
   "Applications": [
-    "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+    "C:\\Users\\Danil\\AppData\\Local\\Programs\\ai.opencode.desktop\\OpenCode.exe"
   ],
-  "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\firefox.psf",
+  "ApplicationPath": "C:\\Users\\Danil\\AppData\\Local\\Programs\\ai.opencode.desktop\\OpenCode.exe",
+  "VendorProfilePath": "D:\\Projects\\MouseMackrosSwitch\\data\\psf\\firefox.psf",
   "PsfRevision": 4,
   "Match": {
     "Processes": [
-      "firefox"
+      "OpenCode"
     ],
     "Priority": 10
   },

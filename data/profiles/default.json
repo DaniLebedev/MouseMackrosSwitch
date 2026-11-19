@@ -8,31 +8,6 @@
     "Processes": [],
     "Priority": -100
   },
-  "Bindings": [
-    {
-      "Button": 0,
-      "Trigger": "mouse:X1",
-      "Label": "Боковая 1 — назад",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "Alt+Left",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
-      "Button": 0,
-      "Trigger": "mouse:X2",
-      "Label": "Боковая 2 — вперёд",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "Alt+Right",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    }
-  ],
+  "Bindings": [],
   "IsFallback": true
 }

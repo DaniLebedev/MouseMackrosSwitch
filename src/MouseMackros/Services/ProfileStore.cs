@@ -277,6 +277,11 @@ public static class ProfileStore
             }
 
             MouseButtonMap.NormalizeBindings(profile);
+
+            // The whole layout lives on the mouse itself; profiles only mirror
+            // physical buttons. Older builds had extra wheel/keyboard triggers.
+            profile.Bindings.RemoveAll(b => b.Button <= 0);
+
             DropNeutralEchoBindings(profile);
 
             // Older files kept a single ApplicationPath; newer ones allow many.

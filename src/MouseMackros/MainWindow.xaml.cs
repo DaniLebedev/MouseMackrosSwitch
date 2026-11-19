@@ -27,7 +27,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _saveTimer;
     private readonly ObservableCollection<ProfileRow> _profileRows = new();
     private readonly ObservableCollection<ButtonRow> _buttonRows = new();
-    private readonly ObservableCollection<ButtonRow> _otherRows = new();
 
     private Profile? _selected;
     private bool _suppress;
@@ -46,7 +45,6 @@ public partial class MainWindow : Window
 
         ProfileList.ItemsSource = _profileRows;
         ButtonsList.ItemsSource = _buttonRows;
-        OtherList.ItemsSource = _otherRows;
 
         _app.Engine.ActiveProfileChanged += OnEngineProfileChanged;
         _app.Engine.InputObserved += OnInputObserved;
@@ -257,7 +255,6 @@ public partial class MainWindow : Window
     private void BuildRows()
     {
         _buttonRows.Clear();
-        _otherRows.Clear();
         if (_selected is null) return;
 
         var accent = AccentBrush(_selected.Accent);
@@ -273,29 +270,10 @@ public partial class MainWindow : Window
             _buttonRows.Add(new ButtonRow
             {
                 Model = binding,
-                IsButton = true,
                 Button = info.Number,
                 NumberText = info.Number.ToString(),
                 Title = string.IsNullOrWhiteSpace(binding.Label) ? info.Name : binding.Label!,
                 TriggerText = $"Кнопка {info.Number} · {Trigger.Parse(binding.Trigger).DisplayName}",
-                ActionSummary = DescribeAction(binding.Action),
-                ActionDetail = DescribeActionDetail(binding.Action),
-                Accent = accent,
-                AccentBackground = tint,
-                AssignedVisibility = Visibility.Visible
-            });
-        }
-
-        foreach (var binding in _selected.Bindings.Where(b => b.Button <= 0))
-        {
-            var trigger = Trigger.Parse(binding.Trigger);
-            _otherRows.Add(new ButtonRow
-            {
-                Model = binding,
-                IsButton = false,
-                NumberText = "—",
-                Title = string.IsNullOrWhiteSpace(binding.Label) ? trigger.DisplayName : binding.Label!,
-                TriggerText = trigger.DisplayName,
                 ActionSummary = DescribeAction(binding.Action),
                 ActionDetail = DescribeActionDetail(binding.Action),
                 Accent = accent,
@@ -315,8 +293,6 @@ public partial class MainWindow : Window
                 ? "Все кнопки в этом файле выключены (Disable). Выберите другой .psf."
                 : "Загрузите .psf из MBF1000PRO — действия кнопок появятся здесь автоматически.";
         }
-
-        OtherSection.Visibility = _otherRows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Commit(bool refreshList = true)
@@ -1154,7 +1130,6 @@ public partial class MainWindow : Window
     public sealed class ButtonRow
     {
         public Binding? Model { get; init; }
-        public bool IsButton { get; init; }
         public int Button { get; init; }
         public string NumberText { get; init; } = "";
         public string Title { get; init; } = "";

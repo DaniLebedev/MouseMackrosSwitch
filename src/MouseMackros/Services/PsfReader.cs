@@ -42,7 +42,7 @@ public sealed class PsfFile
     /// </summary>
     public int ApplyTo(Profile profile)
     {
-        profile.Bindings.RemoveAll(b => b.Button > 0);
+        profile.Bindings.Clear();
 
         int count = 0;
         foreach (var button in MouseButtonMap.Editable)
