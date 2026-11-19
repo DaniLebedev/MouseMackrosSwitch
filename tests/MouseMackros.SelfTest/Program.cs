@@ -95,6 +95,19 @@ Check("подпрофиль: глубина важнее приоритета",
     ProfileEngine.SelectProfile(nested, Win("chrome", "YouTube")).Id == "youtube",
     ProfileEngine.SelectProfile(nested, Win("chrome", "YouTube")).Id);
 
+var manualLayer = new Profile
+{
+    Id = "layer1", Name = "Слой 1", ParentId = "browser", IsManualLayer = true,
+    LayerOrder = 1, Match = new MatchRules { TitleContains = "LayerOnly" }
+};
+nested.Profiles.Add(manualLayer);
+Check("ручной слой не выбирается автоматически",
+    ProfileEngine.SelectProfile(nested, Win("firefox", "LayerOnly")).Id == "browser",
+    ProfileEngine.SelectProfile(nested, Win("firefox", "LayerOnly")).Id);
+Check("ручные слои родителя находятся",
+    nested.ManualLayersOf(browser).Count == 1 &&
+    nested.ManualLayersOf(browser)[0].Id == "layer1");
+
 var nestedJson = JsonSerializer.Serialize(nested, ProfileStore.JsonOptions);
 var nestedBack = JsonSerializer.Deserialize<AppConfig>(nestedJson, ProfileStore.JsonOptions)!;
 Check("JSON: ParentId сохраняется", nestedBack.GetProfile("youtube")?.ParentId == "browser",

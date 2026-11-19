@@ -17,11 +17,14 @@ public sealed class ProfileEngine : IDisposable
     private readonly ActionExecutor _executor = new();
 
     private readonly Dictionary<string, Dictionary<string, Binding>> _lookup = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _layerIndex = new(StringComparer.OrdinalIgnoreCase);
     private bool _lookupDirty = true;
     private string? _manualProfileId;
+    private string? _lastWheelColor;
 
     public AppConfig Config { get; private set; }
     public Profile ActiveProfile { get; private set; }
+    public Profile? ActiveLayer { get; private set; }
     public WindowInfo? CurrentWindow { get; private set; }
     public bool IsPaused { get; set; }
 
@@ -53,8 +56,11 @@ public sealed class ProfileEngine : IDisposable
     public void Start()
     {
         _watcher.Start();
-        ProfileStore.Log($"[start] профиль «{ActiveProfile.Name}»");
+        ActiveLayer = ResolveLayer(ActiveProfile);
+        ProfileStore.Log($"[start] профиль «{ActiveProfile.Name}»{LayerSuffix}");
+        UpdateWheelColor();
     }
+
     public void ApplyConfig(AppConfig config)
     {
         Config = config;
@@ -62,11 +68,14 @@ public sealed class ProfileEngine : IDisposable
         _manualProfileId = null;
         var window = _watcher.GetForeground();
         if (window is not null) CurrentWindow = window;
-        ActiveProfile = Resolve(CurrentWindow);
-        ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
+        Activate(Resolve(CurrentWindow));
     }
 
-    public void Invalidate() => _lookupDirty = true;
+    public void Invalidate()
+    {
+        _lookupDirty = true;
+        UpdateWheelColor();
+    }
 
     /// <summary>Runs an action once, for the "Test" button in the editor.</summary>
     public void TestAction(ActionSpec action)
@@ -84,9 +93,88 @@ public sealed class ProfileEngine : IDisposable
     {
         var profile = Config.GetProfile(id);
         if (profile is null) return;
+
+        // Selecting a manual layer means "the parent profile + this layer".
+        if (profile.IsManualLayer && Config.GetProfile(profile.ParentId) is { } parent)
+        {
+            _manualProfileId = parent.Id;
+            ActiveProfile = parent;
+            var layers = GetManualLayers(parent);
+            int index = layers.ToList().IndexOf(profile);
+            if (index >= 0) _layerIndex[parent.Id] = index + 1;
+            ActiveLayer = profile;
+            ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
+            UpdateWheelColor();
+            return;
+        }
+
         _manualProfileId = profile.Id;
+        Activate(profile);
+    }
+
+    public IReadOnlyList<Profile> GetManualLayers(Profile parent) => Config.ManualLayersOf(parent);
+
+    private string LayerSuffix => ActiveLayer is null ? "" : " / «" + ActiveLayer.Name + "»";
+
+    private void Activate(Profile profile)
+    {
         ActiveProfile = profile;
+        ActiveLayer = ResolveLayer(profile);
         ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
+        UpdateWheelColor();
+    }
+
+    private Profile? ResolveLayer(Profile parent)
+    {
+        var layers = GetManualLayers(parent);
+        if (layers.Count == 0)
+        {
+            _layerIndex.Remove(parent.Id);
+            return null;
+        }
+
+        // Index 0 is the parent profile itself; 1..N are manual layers.
+        int index = _layerIndex.GetValueOrDefault(parent.Id, 0);
+        if (index < 0 || index > layers.Count) index = 0;
+        _layerIndex[parent.Id] = index;
+        return index == 0 ? null : layers[index - 1];
+    }
+
+    /// <summary>Cycles the parent profile and its manual layers (+1/-1, wraps).</summary>
+    public void SwitchLayer(int direction)
+    {
+        var layers = GetManualLayers(ActiveProfile);
+        if (layers.Count == 0) return;
+
+        int count = layers.Count + 1;
+        int index = _layerIndex.GetValueOrDefault(ActiveProfile.Id, 0);
+        index = ((index + direction) % count + count) % count;
+        _layerIndex[ActiveProfile.Id] = index;
+        ActiveLayer = index == 0 ? null : layers[index - 1];
+
+        var name = ActiveLayer?.Name ?? "базовая";
+        ProfileStore.Log($"[layer] «{ActiveProfile.Name}» → «{name}» ({index + 1}/{count})");
+        ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
+        UpdateWheelColor();
+    }
+
+    private void UpdateWheelColor()
+    {
+        var color = ActiveLayer?.IndicatorColor;
+        if (string.IsNullOrWhiteSpace(color)) color = ActiveProfile.IndicatorColor;
+        if (string.IsNullOrWhiteSpace(color)) return;
+        if (string.Equals(color, _lastWheelColor, StringComparison.OrdinalIgnoreCase)) return;
+
+        _lastWheelColor = color;
+        var label = ActiveProfile.Name + LayerSuffix;
+        Task.Run(() =>
+        {
+            var result = HidMouseWriter.SetWheelColor(color);
+            if (!result.Success) _lastWheelColor = null;
+            ProfileStore.Log("[wheel] " + (result.Success
+                ? result.Message + " (" + label + ")"
+                : result.Message));
+        });
     }
 
     public void TogglePause()
@@ -114,8 +202,7 @@ public sealed class ProfileEngine : IDisposable
         if (!ReferenceEquals(profile, ActiveProfile))
         {
             ProfileStore.Log($"[profile] «{profile.Name}» ← {info.ProcessName} / {info.Title}");
-            ActiveProfile = profile;
-            ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
+            Activate(profile);
         }
     }
 
@@ -139,8 +226,7 @@ public sealed class ProfileEngine : IDisposable
         if (ReferenceEquals(profile, ActiveProfile)) return;
 
         ProfileStore.Log($"[input-profile] «{profile.Name}» ← {window.ProcessName}");
-        ActiveProfile = profile;
-        ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
+        Activate(profile);
     }
 
     private Profile Resolve(WindowInfo? window) => SelectProfile(Config, window, _manualProfileId);
@@ -155,6 +241,11 @@ public sealed class ProfileEngine : IDisposable
         if (!string.IsNullOrWhiteSpace(manualId))
         {
             var manual = config.GetProfile(manualId);
+            if (manual is { IsManualLayer: true } &&
+                config.GetProfile(manual.ParentId) is { } parent)
+            {
+                return parent;
+            }
             if (manual is not null) return manual;
         }
 
@@ -165,7 +256,7 @@ public sealed class ProfileEngine : IDisposable
 
             foreach (var p in config.Profiles)
             {
-                if (p.IsFallback || !p.Match.HasRules) continue;
+                if (p.IsFallback || p.IsManualLayer || !p.Match.HasRules) continue;
                 if (!Matches(p.Match, window)) continue;
                 if (!AncestorsMatch(config, p, window)) continue;
 
@@ -238,6 +329,17 @@ public sealed class ProfileEngine : IDisposable
         return _lookup.TryGetValue(profile.Id, out var map) ? map : new Dictionary<string, Binding>();
     }
 
+    /// <summary>Active manual layer first, then the parent profile.</summary>
+    private Binding? FindBinding(string key)
+    {
+        if (ActiveLayer is not null &&
+            MapFor(ActiveLayer).TryGetValue(key, out var layerBinding))
+        {
+            return layerBinding;
+        }
+        return MapFor(ActiveProfile).GetValueOrDefault(key);
+    }
+
     private void RebuildLookup()
     {
         _lookup.Clear();
@@ -288,7 +390,22 @@ public sealed class ProfileEngine : IDisposable
 
         if (!Effective) return;
 
-        var binding = MapFor(ActiveProfile).GetValueOrDefault(key);
+        // Manual layer controls are profile-wide and always win over bindings.
+        int button = MouseButtonMap.ButtonForTrigger(trigger.ToString());
+        int layerDirection = 0;
+        if (button > 0)
+        {
+            if (button == ActiveProfile.LayerNextButton) layerDirection = 1;
+            else if (button == ActiveProfile.LayerPrevButton) layerDirection = -1;
+        }
+        if (layerDirection != 0)
+        {
+            if (e.IsDown) SwitchLayer(layerDirection);
+            e.Handled = true;
+            return;
+        }
+
+        var binding = FindBinding(key);
         if (binding is null)
         {
             // Ctrl+Alt+Shift+A..M is MouseMackros' own channel. If the current
@@ -298,14 +415,15 @@ public sealed class ProfileEngine : IDisposable
             return;
         }
 
-        ProfileStore.Log($"[action] {ActiveProfile.Name} | {trigger.DisplayName} | {binding.Action.Kind} | {binding.Label}");
+        ProfileStore.Log($"[action] {ActiveProfile.Name}{LayerSuffix} | {trigger.DisplayName} | {binding.Action.Kind} | {binding.Label}");
         InputObserved?.Invoke(this, new InputEventInfo(DateTime.Now, "Клавиатура", trigger.DisplayName, key));
 
         if (binding.Action.Kind == ActionKind.PassThrough) return;
         e.Handled = true;
 
-        if (e.IsDown) _executor.ExecuteStart(ActiveProfile.Id + "|" + key, binding.Action);
-        else _executor.ExecuteEnd(ActiveProfile.Id + "|" + key, binding.Action);
+        var executionKey = ActiveProfile.Id + "|" + (ActiveLayer?.Id ?? "") + "|" + key;
+        if (e.IsDown) _executor.ExecuteStart(executionKey, binding.Action);
+        else _executor.ExecuteEnd(executionKey, binding.Action);
     }
 
     private static bool IsNeutralTrigger(Trigger trigger)
@@ -346,14 +464,15 @@ public sealed class ProfileEngine : IDisposable
         if (!Effective) return;
         InputObserved?.Invoke(this, new InputEventInfo(DateTime.Now, "Мышь", e.DisplayName, key));
 
-        var binding = MapFor(ActiveProfile).GetValueOrDefault(key);
+        var binding = FindBinding(key);
         if (binding is null) return;
         if (binding.Action.Kind == ActionKind.PassThrough) return;
 
-        ProfileStore.Log($"[action] {ActiveProfile.Name} | {e.DisplayName} | {binding.Action.Kind} | {binding.Label}");
+        ProfileStore.Log($"[action] {ActiveProfile.Name}{LayerSuffix} | {e.DisplayName} | {binding.Action.Kind} | {binding.Label}");
         e.Handled = true;
-        if (e.IsDown) _executor.ExecuteStart(ActiveProfile.Id + "|" + key, binding.Action);
-        else _executor.ExecuteEnd(ActiveProfile.Id + "|" + key, binding.Action);
+        var executionKey = ActiveProfile.Id + "|" + (ActiveLayer?.Id ?? "") + "|" + key;
+        if (e.IsDown) _executor.ExecuteStart(executionKey, binding.Action);
+        else _executor.ExecuteEnd(executionKey, binding.Action);
     }
 
     public void Dispose()

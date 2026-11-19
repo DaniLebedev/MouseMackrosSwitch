@@ -68,6 +68,8 @@
             <MenuItem Header="Добавить подпрофиль…" Click="AddSubProfile_Click" />
             <MenuItem Header="Подпрофиль для текущего окна…" Click="AddSubProfileForWindow_Click" />
             <Separator />
+            <MenuItem Header="Ручные раскладки…" Click="Layers_Click" />
+            <Separator />
             <MenuItem Header="Сделать основным" Click="MakeDefault_Click" />
             <MenuItem Header="Удалить профиль" Click="DeleteProfile_Click" />
         </ContextMenu>
@@ -288,6 +290,11 @@
                                             Visibility="Collapsed">
                                         <TextBlock x:Name="SubProfileChipText" Style="{StaticResource ChipText}"
                                                    Foreground="#C3A0FF" />
+                                    </Border>
+                                    <Border x:Name="LayersChip" Style="{StaticResource Chip}"
+                                            Visibility="Collapsed">
+                                        <TextBlock x:Name="LayersChipText" Style="{StaticResource ChipText}"
+                                                   Foreground="#7FD1B9" />
                                     </Border>
                                 </WrapPanel>
                                 <Border x:Name="VendorBanner" Background="#2A2318" BorderBrush="#5A4420"

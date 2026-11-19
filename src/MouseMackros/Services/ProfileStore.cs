@@ -335,6 +335,16 @@ public static class ProfileStore
             {
                 profile.ParentId = null;
             }
+
+            // A manual layer only makes sense inside a parent profile.
+            if (profile.IsManualLayer &&
+                (profile.IsFallback || AppConfig.ParentOf(profile) is null))
+            {
+                profile.IsManualLayer = false;
+            }
+
+            profile.LayerNextButton = Math.Clamp(profile.LayerNextButton, 0, 16);
+            profile.LayerPrevButton = Math.Clamp(profile.LayerPrevButton, 0, 16);
         }
 
         // Break accidental cycles so matching cannot loop forever.

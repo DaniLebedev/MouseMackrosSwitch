@@ -6,7 +6,7 @@
     "C:\\Program Files (x86)\\Steam\\steam.exe"
   ],
   "ApplicationPath": "C:\\Program Files (x86)\\Steam\\steam.exe",
-  "VendorProfilePath": "D:\\Projects\\MouseMackrosSwitch\\data\\psf\\firefox.psf",
+  "VendorProfilePath": "D:\\Projects\\MouseMackrosSwitch\\data\\psf\\word.psf",
   "PsfRevision": 4,
   "Match": {
     "Processes": [
@@ -17,24 +17,12 @@
   },
   "Bindings": [
     {
-      "Button": 1,
-      "Trigger": "key:Ctrl+Shift+Alt+A",
-      "Label": "WIN+D",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "Win+D",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
       "Button": 3,
       "Trigger": "key:Ctrl+Shift+Alt+C",
-      "Label": "tab left",
+      "Label": "Copy",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Shift+Tab",
+        "Value": "Ctrl+C",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -56,10 +44,10 @@
     {
       "Button": 6,
       "Trigger": "key:Ctrl+Shift+Alt+F",
-      "Label": "tab right",
+      "Label": "Paste",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Tab",
+        "Value": "Ctrl+V",
         "Mode": "Once",
         "Repeat": 0
       },

@@ -127,7 +127,9 @@ public partial class MainWindow : Window
         {
             Model = profile,
             Name = string.IsNullOrWhiteSpace(profile.Name) ? "Без имени" : profile.Name,
-            Subtitle = DescribeRules(profile),
+            Subtitle = profile.IsManualLayer
+                ? "слой · " + DescribeRules(profile)
+                : DescribeRules(profile),
             Accent = AccentBrush(profile.Accent),
             Initial = InitialOf(profile.Name),
             Icon = AppCatalog.IconFor(profile.AllApplications.FirstOrDefault()),
@@ -193,10 +195,21 @@ public partial class MainWindow : Window
 
             var parent = _app.Config.GetProfile(_selected.ParentId);
             SubProfileChip.Visibility = parent is null ? Visibility.Collapsed : Visibility.Visible;
-            SubProfileChipText.Text = parent is null ? "" : "подпрофиль: " + parent.Name;
+            SubProfileChipText.Text = parent is null
+                ? ""
+                : (_selected.IsManualLayer ? "слой: " : "подпрофиль: ") + parent.Name;
             SubProfileChip.ToolTip = parent is null
                 ? null
-                : "Включается, когда совпадают правила профиля «" + parent.Name + "» и его собственные.";
+                : (_selected.IsManualLayer
+                    ? "Переключается вручную кнопками родительского профиля."
+                    : "Включается, когда совпадают правила профиля «" + parent.Name + "» и его собственные.");
+
+            var layerCount = _app.Config.ManualLayersOf(_selected).Count;
+            LayersChip.Visibility = layerCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+            LayersChipText.Text = layerCount > 0 ? $"слоёв: {layerCount}" : "";
+            LayersChip.ToolTip = layerCount > 0
+                ? "Профиль → Ручные раскладки… (кнопки переключения и цвета колеса)"
+                : null;
         }
         finally
         {
@@ -335,8 +348,9 @@ public partial class MainWindow : Window
         MenuItemAt(menu, 1).IsEnabled = _selected is { IsFallback: false };
         MenuItemAt(menu, 2).IsEnabled = _selected is not null;
         MenuItemAt(menu, 3).IsEnabled = _selected is not null;
-        MenuItemAt(menu, 5).IsEnabled = editable && _selected?.ParentId is null;
-        MenuItemAt(menu, 6).IsEnabled = editable;
+        MenuItemAt(menu, 5).IsEnabled = _selected is not null;
+        MenuItemAt(menu, 7).IsEnabled = editable && _selected?.ParentId is null;
+        MenuItemAt(menu, 8).IsEnabled = editable;
         OpenMenu(menu, (FrameworkElement)sender);
     }
 
@@ -382,10 +396,13 @@ public partial class MainWindow : Window
             ? new SolidColorBrush(Color.FromRgb(0x8D, 0x96, 0xA8))
             : new SolidColorBrush(Color.FromRgb(0x3F, 0xB9, 0x50));
 
+        var profileName = _app.Engine.ActiveLayer is { } layer
+            ? $"{_app.Engine.ActiveProfile.Name} / {layer.Name}"
+            : _app.Engine.ActiveProfile.Name;
         var window = _app.Engine.CurrentWindow;
         ActiveWindowText.Text = window is null
-            ? $"Активный профиль: {_app.Engine.ActiveProfile.Name}"
-            : $"Активный профиль: {_app.Engine.ActiveProfile.Name}  ·  {window.ProcessName}";
+            ? $"Активный профиль: {profileName}"
+            : $"Активный профиль: {profileName}  ·  {window.ProcessName}";
     }
 
     public void OnEngineProfileChanged(object? sender, EventArgs e)
@@ -472,6 +489,9 @@ public partial class MainWindow : Window
             : dialog.ProfileName.Trim();
         child.ParentId = parent.Id;
         child.IsFallback = false;
+        child.IsManualLayer = false;
+        child.LayerNextButton = 0;
+        child.LayerPrevButton = 0;
         child.Match.TitleContains = string.IsNullOrWhiteSpace(dialog.TitleContains)
             ? null
             : dialog.TitleContains.Trim();
@@ -616,6 +636,23 @@ public partial class MainWindow : Window
 
         Commit();
     }
+
+    private void Layers_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null) return;
+
+        var parent = _selected.IsManualLayer
+            ? _app.Config.GetProfile(_selected.ParentId) ?? _selected
+            : _selected;
+
+        var dialog = new LayersDialog(_app.Config, parent) { Owner = this };
+        if (dialog.ShowDialog() != true || !dialog.Saved) return;
+
+        Commit();
+        LastInputText.Text = "Ручные раскладки обновлены";
+    }
+
+    public void SetStatusText(string text) => LastInputText.Text = text;
 
     private void MakeDefault_Click(object sender, RoutedEventArgs e)
     {

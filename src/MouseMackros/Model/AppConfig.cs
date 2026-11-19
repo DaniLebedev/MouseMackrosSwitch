@@ -133,6 +133,24 @@ public sealed class Profile
     /// </summary>
     public string? ParentId { get; set; }
 
+    /// <summary>
+    /// Manual layer: a child profile that is never matched automatically.
+    /// The user cycles through these with the layer buttons of the parent.
+    /// </summary>
+    public bool IsManualLayer { get; set; }
+
+    /// <summary>Order of a manual layer inside its parent.</summary>
+    public int LayerOrder { get; set; }
+
+    /// <summary>Wheel/DPI indicator color for this profile or manual layer (#RRGGBB).</summary>
+    public string? IndicatorColor { get; set; }
+
+    /// <summary>Physical button that switches to the next manual layer (0 = none).</summary>
+    public int LayerNextButton { get; set; }
+
+    /// <summary>Physical button that switches to the previous manual layer (0 = none).</summary>
+    public int LayerPrevButton { get; set; }
+
     /// <summary>All attached applications, including the legacy single path.</summary>
     [JsonIgnore]
     public IReadOnlyList<string> AllApplications
@@ -178,6 +196,11 @@ public sealed class Profile
         Applications = Applications.ToList(),
         ApplicationPath = ApplicationPath,
         ParentId = ParentId,
+        IsManualLayer = IsManualLayer,
+        LayerOrder = LayerOrder,
+        IndicatorColor = IndicatorColor,
+        LayerNextButton = LayerNextButton,
+        LayerPrevButton = LayerPrevButton,
         VendorProfilePath = VendorProfilePath,
         PsfRevision = PsfRevision,
         Match = new MatchRules
@@ -216,6 +239,14 @@ public sealed class AppConfig
     /// <summary>Direct children of a profile (null/empty = top-level profiles).</summary>
     public IEnumerable<Profile> ChildrenOf(string? parentId) =>
         Profiles.Where(p => string.Equals(ParentOf(p), parentId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Manual layers of a profile, in display order.</summary>
+    public IReadOnlyList<Profile> ManualLayersOf(Profile parent) =>
+        ChildrenOf(parent.Id)
+            .Where(p => p.IsManualLayer)
+            .OrderBy(p => p.LayerOrder)
+            .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
 
     /// <summary>Parent id, normalizing an empty string to null.</summary>
     public static string? ParentOf(Profile profile) =>

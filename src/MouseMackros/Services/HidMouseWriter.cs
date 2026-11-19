@@ -87,6 +87,81 @@ public static class HidMouseWriter
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(IntPtr handle);
 
+    private static readonly object WheelGate = new();
+
+    /// <summary>
+    /// Sets the wheel/DPI indicator color. The vendor app sends 06 03 with
+    /// eight RGB triples; the wheel uses the color of the active DPI level.
+    /// We write the same color to all eight levels and all known profile slots.
+    /// </summary>
+    public static Result SetWheelColor(string hex)
+    {
+        var value = (hex ?? "").Trim().TrimStart('#');
+        if (value.Length != 6 ||
+            !int.TryParse(value, System.Globalization.NumberStyles.HexNumber,
+                System.Globalization.CultureInfo.InvariantCulture, out int rgb))
+        {
+            return new Result(false, $"Некорректный цвет «{hex}». Нужен RRGGBB.");
+        }
+
+        byte r = (byte)((rgb >> 16) & 0xFF);
+        byte g = (byte)((rgb >> 8) & 0xFF);
+        byte b = (byte)(rgb & 0xFF);
+
+        lock (WheelGate)
+        {
+            var handle = FindDevice(out string info);
+            if (handle == IntPtr.Zero)
+                return new Result(false, "Мышь не найдена по HID.\n\n" + info);
+
+            try
+            {
+                // Captured from the vendor app: the DPI color table is written
+                // to several profile slots; sending all of them makes the
+                // indicator color independent of the active profile.
+                byte[] sequences = { 0x03, 0x05, 0x06, 0x07, 0x19, 0x1B };
+                int accepted = 0;
+
+                foreach (byte sequence in sequences)
+                {
+                    var packet = new byte[32];
+                    packet[0] = 0x06;
+                    packet[1] = 0x03;
+                    packet[2] = sequence;
+                    packet[3] = 0x01;
+
+                    for (int i = 0; i < 8; i++)
+                    {
+                        packet[5 + i * 3] = r;
+                        packet[6 + i * 3] = g;
+                        packet[7 + i * 3] = b;
+                    }
+
+                    int sum = 0;
+                    for (int i = 0; i < packet.Length; i++)
+                        if (i != 4) sum += packet[i];
+                    packet[4] = (byte)(sum & 0xFF);
+
+                    if (HidD_SetFeature(handle, packet, packet.Length))
+                        accepted++;
+                    Thread.Sleep(25);
+                }
+
+                return accepted > 0
+                    ? new Result(true, $"Цвет колеса: #{r:X2}{g:X2}{b:X2}")
+                    : new Result(false, "Устройство не приняло пакет цвета.");
+            }
+            catch (Exception ex)
+            {
+                return new Result(false, "Ошибка записи цвета: " + ex.Message);
+            }
+            finally
+            {
+                CloseHandle(handle);
+            }
+        }
+    }
+
     /// <summary>Writes the neutral A..M layout (buttons 1..11,15,16).</summary>
     public static Result WriteNeutral()
     {
