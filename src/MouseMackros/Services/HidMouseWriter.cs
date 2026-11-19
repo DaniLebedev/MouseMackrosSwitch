@@ -101,7 +101,10 @@ public static class HidMouseWriter
     {
         var handle = FindDevice(out string info);
         if (handle == IntPtr.Zero)
-            return new Result(false, "Мышь MBF1000PRO не найдена по HID.\n\n" + info);
+            return new Result(false,
+                "Не удалось открыть конфигурационный HID-интерфейс мыши MBF1000PRO.\n\n" +
+                "Нажмите любую кнопку мыши, чтобы разбудить её, и повторите. " +
+                "Фирменную программу MBF1000PRO лучше закрыть.\n\n" + info);
 
         try
         {
@@ -215,7 +218,10 @@ public static class HidMouseWriter
     {
         var handle = FindDevice(out string info);
         if (handle == IntPtr.Zero)
-            return new Result(false, "Мышь MBF1000PRO не найдена по HID.\n\n" + info);
+            return new Result(false,
+                "Не удалось открыть конфигурационный HID-интерфейс мыши MBF1000PRO.\n\n" +
+                "Нажмите любую кнопку мыши, чтобы разбудить её, и повторите. " +
+                "Фирменную программу MBF1000PRO лучше закрыть.\n\n" + info);
 
         try
         {
@@ -320,15 +326,17 @@ public static class HidMouseWriter
                         HidD_FreePreparsedData(preparsed);
                     }
 
-                    bool ack = false;
+                    string probe = "—";
                     if (feature >= 32)
                     {
-                        var probe = new byte[32];
-                        probe[0] = 0x06;
-                        ack = HidD_GetFeature(handle, probe, probe.Length) && probe[1] == 0x01;
+                        var probeBuffer = new byte[Math.Max(32, feature)];
+                        probeBuffer[0] = 0x06;
+                        probe = HidD_GetFeature(handle, probeBuffer, probeBuffer.Length)
+                            ? Convert.ToHexString(probeBuffer, 0, Math.Min(2, probeBuffer.Length))
+                            : "fail";
                     }
 
-                    lines.Add($"{attributes.VendorId:X4}:{attributes.ProductId:X4} feature={feature} ack={ack} «{product}»");
+                    lines.Add($"{attributes.VendorId:X4}:{attributes.ProductId:X4} feature={feature} probe={probe} «{product}»");
                 }
                 finally
                 {
@@ -466,8 +474,6 @@ public static class HidMouseWriter
         HidP_GetCaps(preparsed, ref caps);
         HidD_FreePreparsedData(preparsed);
 
-        seen?.Add($"{attributes.VendorId:X4}:{attributes.ProductId:X4} f={caps.FeatureReportByteLength} «{productName}»");
-
         bool named = productName.Contains("MBF", StringComparison.OrdinalIgnoreCase) ||
                      productName.Contains("Gaming", StringComparison.OrdinalIgnoreCase) ||
                      productName.Contains("Mouse", StringComparison.OrdinalIgnoreCase) ||
@@ -481,20 +487,34 @@ public static class HidMouseWriter
 
         if (caps.FeatureReportByteLength < 32)
         {
+            seen?.Add($"{attributes.VendorId:X4}:{attributes.ProductId:X4} f={caps.FeatureReportByteLength} «{productName}»");
             CloseHandle(candidate);
             return false;
         }
 
-        var probe = new byte[32];
-        probe[0] = 0x06;
-        if (!HidD_GetFeature(candidate, probe, probe.Length) || probe[1] != 0x01)
+        // The config collection answers a 0x06 feature read. Do not require a
+        // specific second byte: after a reboot the mouse returns 06 00, while
+        // the earlier build expected 06 01 and wrongly reported "not found".
+        int probeLength = Math.Max(32, (int)caps.FeatureReportByteLength);
+        bool probeOk = false;
+        for (int attempt = 0; attempt < 3 && !probeOk; attempt++)
+        {
+            var probe = new byte[probeLength];
+            probe[0] = 0x06;
+            probeOk = HidD_GetFeature(candidate, probe, probe.Length);
+            if (!probeOk) Thread.Sleep(100);
+        }
+
+        seen?.Add($"{attributes.VendorId:X4}:{attributes.ProductId:X4} f={caps.FeatureReportByteLength} probe={(probeOk ? "ok" : "fail")} «{productName}»");
+
+        if (!probeOk)
         {
             CloseHandle(candidate);
             return false;
         }
 
         handle = candidate;
-        detail = $"VID={attributes.VendorId:X4} PID={attributes.ProductId:X4} feature={caps.FeatureReportByteLength} product={productName}";
+        detail = $"VID={attributes.VendorId:X4} PID={attributes.ProductId:X4} feature={caps.FeatureReportByteLength} probe=ok product={productName}";
         return true;
     }
 }

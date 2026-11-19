@@ -6,7 +6,7 @@
     "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
   ],
   "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\xz.psf",
+  "VendorProfilePath": "D:\\Projects\\MouseMackrosSwitch\\data\\psf\\firefox.psf",
   "PsfRevision": 4,
   "Match": {
     "Processes": [
@@ -64,10 +64,10 @@
     {
       "Button": 3,
       "Trigger": "key:Ctrl+Shift+Alt+C",
-      "Label": "tab right",
+      "Label": "tab left",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Tab",
+        "Value": "Ctrl+Shift+Tab",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -89,23 +89,10 @@
     {
       "Button": 6,
       "Trigger": "key:Ctrl+Shift+Alt+F",
-      "Label": "tab left",
+      "Label": "tab right",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Shift+Tab",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
-      "Button": 8,
-      "Trigger": "key:Ctrl+Shift+Alt+H",
-      "Label": "open explorer",
-      "Action": {
-        "Kind": "Macro",
-        "Value": "",
-        "Script": "down LWin\ndelay 62\ndown E\ndelay 63\nup E\ndelay 31\nup LWin",
+        "Value": "Ctrl+Tab",
         "Mode": "Once",
         "Repeat": 0
       },
