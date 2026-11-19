@@ -568,10 +568,13 @@ public partial class MainWindow : Window
         LastInputText.Text = "Подпись сохранена";
     }
 
-    private void TestBinding_Click(object sender, RoutedEventArgs e)
+    private async void TestBinding_Click(object sender, RoutedEventArgs e)
     {
         var row = RowOf(sender);
         if (row?.Model is null) return;
+
+        LastInputText.Text = "Тест через 3 секунды — переключитесь в нужное окно";
+        await Task.Delay(3000);
 
         _app.Engine.TestAction(row.Model.Action);
         LastInputText.Text = "Тест: " + DescribeAction(row.Model.Action);
@@ -676,6 +679,32 @@ public partial class MainWindow : Window
         }
 
         RefreshVendorStatus();
+    }
+
+    private void WritePsfToMouse_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Записать раскладку в мышь",
+            Filter = "Раскладка MBF1000PRO (*.psf)|*.psf|Все файлы (*.*)|*.*"
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        if (!AppDialog.Confirm(
+                "Записать кнопки из этого .psf в активный профиль мыши?\n\n" +
+                "Сейчас переносятся только клавиши; макросы и подсветка — в разработке.",
+                "Запись .psf в мышь"))
+            return;
+
+        var result = HidMouseWriter.WritePsf(dialog.FileName);
+        if (!result.Success)
+        {
+            AppDialog.ShowError(result.Message, "Не удалось записать раскладку");
+            return;
+        }
+
+        LastInputText.Text = "Раскладка .psf записана в мышь";
+        AppDialog.ShowInfo(result.Message, "Готово");
     }
 
     private void WriteMouse_Click(object sender, RoutedEventArgs e)

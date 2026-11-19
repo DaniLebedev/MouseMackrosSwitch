@@ -4,5 +4,5 @@
   "ShowToast": true,
   "StartWithWindows": false,
   "ToggleHotkey": "Ctrl+Alt+P",
-  "DefaultProfileId": "browser"
+  "DefaultProfileId": "default"
 }

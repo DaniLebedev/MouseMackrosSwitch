@@ -6,7 +6,7 @@
     "C:\\Program Files (x86)\\Steam\\steam.exe"
   ],
   "ApplicationPath": "C:\\Program Files (x86)\\Steam\\steam.exe",
-  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\xz.psf",
+  "VendorProfilePath": "C:\\Users\\Danil\\Downloads\\word.psf",
   "PsfRevision": 2,
   "Match": {
     "Processes": [
@@ -29,36 +29,12 @@
       "Enabled": true
     },
     {
-      "Button": 1,
-      "Trigger": "key:Ctrl+Shift+Alt+A",
-      "Label": "WIN+D",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "Win+D",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
-      "Button": 2,
-      "Trigger": "key:Ctrl+Shift+Alt+B",
-      "Label": "2",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "2",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
       "Button": 3,
       "Trigger": "key:Ctrl+Shift+Alt+C",
-      "Label": "1",
+      "Label": "Copy",
       "Action": {
         "Kind": "Keys",
-        "Value": "1",
+        "Value": "Ctrl+C",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -78,48 +54,12 @@
       "Enabled": true
     },
     {
-      "Button": 5,
-      "Trigger": "key:Ctrl+Shift+Alt+E",
-      "Label": "4",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "4",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
       "Button": 6,
       "Trigger": "key:Ctrl+Shift+Alt+F",
-      "Label": "3",
+      "Label": "Paste",
       "Action": {
         "Kind": "Keys",
-        "Value": "3",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
-      "Button": 7,
-      "Trigger": "key:Ctrl+Shift+Alt+G",
-      "Label": "6",
-      "Action": {
-        "Kind": "Keys",
-        "Value": "6",
-        "Mode": "Once",
-        "Repeat": 0
-      },
-      "Enabled": true
-    },
-    {
-      "Button": 8,
-      "Trigger": "key:Ctrl+Shift+Alt+H",
-      "Label": "GamingMS.exe",
-      "Action": {
-        "Kind": "Run",
-        "Value": "C:\\Program Files\\MBF1000PRO Mouse\\GamingMS.exe",
+        "Value": "Ctrl+V",
         "Mode": "Once",
         "Repeat": 0
       },
