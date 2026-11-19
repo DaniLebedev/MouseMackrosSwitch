@@ -16,7 +16,8 @@ public sealed class WindowWatcher : IDisposable
     private readonly object _gate = new();
     private IntPtr _hook;
     private bool _started;
-    private System.Threading.Timer? _timer;
+    private System.Threading.Timer? _backgroundTimer;
+    private DispatcherTimer? _timer;
     private string _lastKey = "";
 
     public event EventHandler<WindowInfo>? ForegroundChanged;
@@ -35,9 +36,12 @@ public sealed class WindowWatcher : IDisposable
             IntPtr.Zero, _proc, 0, 0,
             NativeMethods.WINEVENT_OUTOFCONTEXT | NativeMethods.WINEVENT_SKIPOWNPROCESS);
 
-        // A background poll makes switching deterministic even if the shell does
-        // not deliver WinEvent callbacks.
-        _timer = new System.Threading.Timer(_ => Poll(), null, 0, 300);
+        // Poll on the UI thread: WinEvent callbacks and background threads can be
+        // attached to a desktop where GetForegroundWindow returns 0.
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _timer.Tick += (_, _) => Poll();
+        _timer.Start();
+        Poll();
     }
 
     private void Poll()
@@ -46,6 +50,8 @@ public sealed class WindowWatcher : IDisposable
         {
             var hwnd = NativeMethods.GetForegroundWindow();
             var info = Describe(hwnd);
+            if (info is null || string.Equals(info.ProcessName, "unknown", StringComparison.OrdinalIgnoreCase))
+                info = GetPointed() ?? info;
             if (info is null) return;
 
             var key = info.Handle + "|" + info.ProcessName;
@@ -76,6 +82,14 @@ public sealed class WindowWatcher : IDisposable
     }
 
     public WindowInfo? GetForeground() => Describe(NativeMethods.GetForegroundWindow());
+
+    /// <summary>Window under the cursor; a reliable fallback for mouse-button actions.</summary>
+    public WindowInfo? GetPointed()
+    {
+        if (!NativeMethods.GetCursorPos(out var point)) return null;
+        var hwnd = NativeMethods.GetAncestor(NativeMethods.WindowFromPoint(point), NativeMethods.GA_ROOT);
+        return Describe(hwnd);
+    }
 
     public static WindowInfo? Describe(IntPtr hwnd)
     {
@@ -122,7 +136,7 @@ public sealed class WindowWatcher : IDisposable
 
     public void Dispose()
     {
-        _timer?.Dispose();
+        _timer?.Stop();
         _timer = null;
         if (_hook != IntPtr.Zero)
         {

@@ -123,9 +123,14 @@ public sealed class ProfileEngine : IDisposable
     /// Resolves the profile from the window that is active right now. Foreground
     /// events can be missed, so every input also refreshes the active profile.
     /// </summary>
-    private void SyncActiveProfile()
+    private void SyncActiveProfile(bool pointer)
     {
-        var window = _watcher.GetForeground();
+        // The hook callback can run on a thread that has no desktop, where
+        // GetForegroundWindow returns 0. The UI timer keeps CurrentWindow fresh.
+        var window = CurrentWindow;
+        if (window is null) window = _watcher.GetForeground();
+        if (window is null) window = _watcher.GetPointed();
+
         if (window is null) return;
         if (string.Equals(window.ProcessName, "mousemackros", StringComparison.OrdinalIgnoreCase)) return;
 
@@ -139,7 +144,8 @@ public sealed class ProfileEngine : IDisposable
     }
 
     private Profile Resolve(WindowInfo? window)
-    {        if (_manualProfileId is not null)
+    {
+        if (_manualProfileId is not null)
         {
             var manual = Config.GetProfile(_manualProfileId);
             if (manual is not null) return manual;
@@ -218,7 +224,7 @@ public sealed class ProfileEngine : IDisposable
 
     private void OnKey(object? sender, KeyInputEventArgs e)
     {
-        SyncActiveProfile();
+        SyncActiveProfile(false);
         var trigger = Trigger.Key(e.Combo);
         var key = trigger.ToString();
 
@@ -271,7 +277,7 @@ public sealed class ProfileEngine : IDisposable
 
     private void OnMouse(object? sender, MouseInputEventArgs e)
     {
-        SyncActiveProfile();
+        SyncActiveProfile(true);
         var key = e.Trigger.ToString();
         if (LearnMode)
         {
