@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Подпрофиль" Width="560" Height="430" WindowStyle="None" ResizeMode="NoResize"
+        Title="Подпрофиль" Width="580" Height="500" WindowStyle="None" ResizeMode="NoResize"
         Background="{StaticResource BgBrush}" WindowStartupLocation="CenterOwner"
         UseLayoutRounding="True" SnapsToDevicePixels="True" FontFamily="{StaticResource UiFont}"
         ShowInTaskbar="False">
@@ -35,15 +35,20 @@
                 <TextBlock Text="ИМЯ ПОДПРОФИЛЯ" Style="{StaticResource SectionTitle}" Margin="0,16,0,8" />
                 <TextBox x:Name="NameBox" />
 
-                <TextBlock Text="СРАБАТЫВАТЬ, ЕСЛИ ЗАГОЛОВОК СОДЕРЖИТ"
+                <TextBlock Text="УСЛОВИЕ (МИНИ-ЯЗЫК)"
                            Style="{StaticResource SectionTitle}" Margin="0,16,0,8" />
-                <TextBox x:Name="TitleBox" />
+                <TextBox x:Name="ConditionBox" />
 
                 <TextBlock x:Name="CurrentTitleText" Style="{StaticResource MutedText}"
                            FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap" />
+                <TextBlock x:Name="CurrentUrlText" Style="{StaticResource MutedText}"
+                           FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
 
-                <TextBlock Text="Подпрофиль включается, когда совпадают правила родителя и эта строка. Для сайта оставьте название, например «YouTube»; для документа — имя файла."
+                <TextBlock Text="Примеры: browser.url contains &quot;youtube.com&quot; · title contains &quot;YouTube&quot; · process == &quot;firefox&quot; &amp;&amp; browser.url contains &quot;github.com&quot;"
                            Style="{StaticResource MutedText}" FontSize="11" Margin="0,10,0,0"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="Можно ввести просто название — оно станет условием по заголовку; домен вроде youtube.com станет условием по URL."
+                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,4,0,0"
                            TextWrapping="Wrap" />
                 <TextBlock Text="Кнопки и приложения копируются из родителя — потом можно загрузить свой .psf."
                            Style="{StaticResource MutedText}" FontSize="11" Margin="0,4,0,0"

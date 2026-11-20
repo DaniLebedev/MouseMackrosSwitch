@@ -6,7 +6,9 @@ using MouseMackros.Services;
 
 namespace MouseMackros.Engine;
 
-public sealed record WindowInfo(IntPtr Handle, string ProcessName, string? ProcessPath, string Title, string ClassName);
+public sealed record WindowInfo(
+    IntPtr Handle, string ProcessName, string? ProcessPath, string Title, string ClassName,
+    string? Url = null);
 
 /// <summary>Tracks the foreground window.</summary>
 public sealed class WindowWatcher : IDisposable
@@ -53,8 +55,11 @@ public sealed class WindowWatcher : IDisposable
                 info = GetPointed() ?? info;
             if (info is null) return;
 
-            // The title is part of the key: switching tabs inside one browser
-            // window keeps the handle, but must re-evaluate title-based sub-profiles.
+            if (BrowserUrlReader.IsBrowser(info.ProcessName))
+                info = info with { Url = BrowserUrlReader.TryGetUrl(info) };
+
+            // The title/URL are part of the key: switching tabs inside one
+            // browser window keeps the handle but must re-evaluate sub-profiles.
             var key = KeyOf(info);
             lock (_gate)
             {
@@ -78,12 +83,15 @@ public sealed class WindowWatcher : IDisposable
         var info = Describe(hwnd);
         if (info is null) return;
 
+        if (BrowserUrlReader.IsBrowser(info.ProcessName))
+            info = info with { Url = BrowserUrlReader.TryGetUrl(info) };
+
         lock (_gate) _lastKey = KeyOf(info);
         ForegroundChanged?.Invoke(this, info);
     }
 
     private static string KeyOf(WindowInfo info) =>
-        info.Handle + "|" + info.ProcessName + "|" + info.Title;
+        info.Handle + "|" + info.ProcessName + "|" + info.Title + "|" + info.Url;
 
     public WindowInfo? GetForeground() => Describe(NativeMethods.GetForegroundWindow());
 

@@ -96,11 +96,18 @@ public sealed class MatchRules
     /// <summary>Window class name (exact, case insensitive).</summary>
     public string? WindowClass { get; set; }
 
+    /// <summary>
+    /// Optional mini-language condition (browser.url, title, process, class).
+    /// It is evaluated in addition to the fields above.
+    /// </summary>
+    public string? Expression { get; set; }
+
     public int Priority { get; set; }
 
     [JsonIgnore]
     public bool HasRules =>
-        Processes.Count > 0 || !string.IsNullOrWhiteSpace(TitleContains) || !string.IsNullOrWhiteSpace(WindowClass);
+        Processes.Count > 0 || !string.IsNullOrWhiteSpace(TitleContains) ||
+        !string.IsNullOrWhiteSpace(WindowClass) || !string.IsNullOrWhiteSpace(Expression);
 }
 
 public sealed class Profile
@@ -208,6 +215,7 @@ public sealed class Profile
             Processes = Match.Processes.ToList(),
             TitleContains = Match.TitleContains,
             WindowClass = Match.WindowClass,
+            Expression = Match.Expression,
             Priority = Match.Priority
         },
         Bindings = Bindings.Select(b => new Binding

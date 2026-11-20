@@ -1,19 +1,24 @@
 using System.Windows;
+using MouseMackros.Engine;
 
 namespace MouseMackros;
 
 public partial class SubProfileDialog : Window
 {
-    public SubProfileDialog(string parentName, string suggestedName, string suggestedTitle, string currentTitle)
+    public SubProfileDialog(string parentName, string suggestedName, string suggestedCondition,
+        string currentTitle, string currentUrl)
     {
         InitializeComponent();
 
         ParentText.Text = parentName;
         NameBox.Text = suggestedName;
-        TitleBox.Text = suggestedTitle;
+        ConditionBox.Text = suggestedCondition;
         CurrentTitleText.Text = string.IsNullOrWhiteSpace(currentTitle)
-            ? "Текущее окно не определено — впишите часть заголовка вручную."
+            ? "Текущее окно не определено — впишите условие вручную."
             : "Текущий заголовок: " + currentTitle;
+        CurrentUrlText.Text = string.IsNullOrWhiteSpace(currentUrl)
+            ? "URL не определён (для Firefox/Chrome/Edge нужен доступ к адресной строке)."
+            : "Текущий URL: " + currentUrl;
 
         Loaded += (_, _) =>
         {
@@ -24,19 +29,28 @@ public partial class SubProfileDialog : Window
 
     public string ProfileName => NameBox.Text;
 
-    public string TitleContains => TitleBox.Text;
+    /// <summary>Normalized condition expression.</summary>
+    public string Condition { get; private set; } = "";
 
     private void Create_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(TitleContains))
+        var condition = ExpressionEvaluator.NormalizeCondition(ConditionBox.Text);
+        if (string.IsNullOrWhiteSpace(condition))
         {
             AppDialog.ShowError(
-                "Укажите часть заголовка окна. Без неё подпрофиль будет совпадать всегда\n" +
+                "Укажите условие. Без него подпрофиль будет совпадать всегда\n" +
                 "и полностью заменит родительский профиль.",
                 "Нужно условие");
             return;
         }
 
+        if (!ExpressionEvaluator.Validate(condition, out var error))
+        {
+            AppDialog.ShowError(error, "Ошибка условия");
+            return;
+        }
+
+        Condition = condition;
         DialogResult = true;
         Close();
     }

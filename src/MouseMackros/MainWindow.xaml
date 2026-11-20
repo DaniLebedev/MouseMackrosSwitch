@@ -199,9 +199,17 @@
                                                        FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                                         </StackPanel>
 
-                                        <Ellipse Grid.Column="3" Width="7" Height="7" Fill="{StaticResource SuccessBrush}"
-                                                 VerticalAlignment="Center" Margin="6,0,2,0"
-                                                 Visibility="{Binding ActiveVisibility}" />
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Border Width="9" Height="9" CornerRadius="2"
+                                                    Background="{Binding IndicatorBrush}"
+                                                    BorderBrush="#313846" BorderThickness="1"
+                                                    Visibility="{Binding IndicatorVisibility}"
+                                                    Margin="0,0,5,0" />
+                                            <Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}"
+                                                     VerticalAlignment="Center" Margin="0,0,2,0"
+                                                     Visibility="{Binding ActiveVisibility}" />
+                                        </StackPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -296,6 +304,17 @@
                                         <TextBlock x:Name="LayersChipText" Style="{StaticResource ChipText}"
                                                    Foreground="#7FD1B9" />
                                     </Border>
+                                    <Button Style="{StaticResource GhostButton}" Click="WheelColor_Click"
+                                            Padding="6,2" Margin="0,0,6,0"
+                                            ToolTip="Цвет колеса как индикатор профиля/слоя">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Border x:Name="WheelColorSwatch" Width="13" Height="13"
+                                                    CornerRadius="3" Background="#8D96A8" Margin="0,0,6,0"
+                                                    BorderBrush="#313846" BorderThickness="1" />
+                                            <TextBlock x:Name="WheelColorText" Text="цвет колеса"
+                                                       FontSize="11" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
                                 </WrapPanel>
                                 <Border x:Name="VendorBanner" Background="#2A2318" BorderBrush="#5A4420"
                                         BorderThickness="1" CornerRadius="7" Padding="8,5" Margin="0,2,0,0"

@@ -106,5 +106,9 @@
       "Enabled": true
     }
   ],
-  "IsFallback": false
+  "IsFallback": false,
+  "IsManualLayer": false,
+  "LayerOrder": 0,
+  "LayerNextButton": 0,
+  "LayerPrevButton": 0
 }

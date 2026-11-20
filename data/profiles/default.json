@@ -9,5 +9,9 @@
     "Priority": -100
   },
   "Bindings": [],
-  "IsFallback": true
+  "IsFallback": true,
+  "IsManualLayer": false,
+  "LayerOrder": 0,
+  "LayerNextButton": 0,
+  "LayerPrevButton": 0
 }

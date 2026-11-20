@@ -1,0 +1,65 @@
+<Window x:Class="MouseMackros.ColorPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Цвет колеса" Width="460" Height="360" WindowStyle="None" ResizeMode="NoResize"
+        Background="{StaticResource BgBrush}" WindowStartupLocation="CenterOwner"
+        UseLayoutRounding="True" SnapsToDevicePixels="True" FontFamily="{StaticResource UiFont}"
+        ShowInTaskbar="False">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="44" ResizeBorderThickness="0" GlassFrameThickness="0"
+                            CornerRadius="0" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Background="{StaticResource BgBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Background="#16191F">
+                <TextBlock Text="Цвет колеса / индикатора" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Margin="16,0,0,0" />
+                <Button Style="{StaticResource IconButton}" Content="✕" HorizontalAlignment="Right"
+                        Margin="0,0,8,0" Click="Cancel_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True" />
+            </Grid>
+
+            <StackPanel Grid.Row="1" Margin="20,16,20,8">
+                <TextBlock Text="ЦВЕТ" Style="{StaticResource SectionTitle}" />
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="ColorBox" ToolTip="RRGGBB или #RRGGBB" />
+                    <Border Grid.Column="1" x:Name="Preview" Width="28" Height="28" CornerRadius="5"
+                            Margin="8,0,0,0" BorderBrush="#313846" BorderThickness="1" />
+                </Grid>
+
+                <TextBlock Text="ПАЛИТРА" Style="{StaticResource SectionTitle}" Margin="0,4,0,8" />
+                <WrapPanel x:Name="PalettePanel" />
+
+                <TextBlock Text="Цвет записывается в колесо/индикатор DPI. Пустой цвет — не менять."
+                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,12,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Grid.Row="2" Background="#16191F" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0" Padding="16,12">
+                <Grid>
+                    <Button Style="{StaticResource GhostButton}" Content="Без цвета"
+                            HorizontalAlignment="Left" Click="Clear_Click" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource FlatButton}" Content="Отмена" Click="Cancel_Click" />
+                        <Button Style="{StaticResource AccentButton}" Content="Сохранить" Margin="8,0,0,0"
+                                Click="Save_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

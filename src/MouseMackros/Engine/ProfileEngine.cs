@@ -66,8 +66,11 @@ public sealed class ProfileEngine : IDisposable
         Config = config;
         _lookupDirty = true;
         _manualProfileId = null;
-        var window = _watcher.GetForeground();
-        if (window is not null) CurrentWindow = window;
+        if (CurrentWindow is null)
+        {
+            var window = _watcher.GetForeground();
+            if (window is not null) CurrentWindow = window;
+        }
         Activate(Resolve(CurrentWindow));
     }
 
@@ -293,6 +296,12 @@ public sealed class ProfileEngine : IDisposable
 
     private static bool Matches(MatchRules rules, WindowInfo window)
     {
+        if (!string.IsNullOrWhiteSpace(rules.Expression))
+        {
+            if (!ExpressionEvaluator.TryEvaluate(rules.Expression, window, out bool ok, out _) || !ok)
+                return false;
+        }
+
         if (rules.Processes.Count > 0)
         {
             var ok = rules.Processes.Any(pattern => Wildcard(pattern, window.ProcessName));

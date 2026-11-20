@@ -79,5 +79,10 @@
       "Enabled": true
     }
   ],
-  "IsFallback": false
+  "IsFallback": false,
+  "IsManualLayer": false,
+  "LayerOrder": 0,
+  "IndicatorColor": "#FF0000",
+  "LayerNextButton": 4,
+  "LayerPrevButton": 9
 }

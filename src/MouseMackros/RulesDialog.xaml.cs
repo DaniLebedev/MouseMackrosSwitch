@@ -1,4 +1,5 @@
 using System.Windows;
+using MouseMackros.Engine;
 using MouseMackros.Model;
 
 namespace MouseMackros;
@@ -15,6 +16,7 @@ public partial class RulesDialog : Window
         ProcessesBox.Text = string.Join(", ", profile.Match.Processes);
         TitleBox.Text = profile.Match.TitleContains ?? "";
         ClassBox.Text = profile.Match.WindowClass ?? "";
+        ExpressionBox.Text = profile.Match.Expression ?? "";
         PriorityBox.Text = profile.Match.Priority.ToString();
     }
 
@@ -27,6 +29,16 @@ public partial class RulesDialog : Window
             .ToList();
         _profile.Match.TitleContains = string.IsNullOrWhiteSpace(TitleBox.Text) ? null : TitleBox.Text.Trim();
         _profile.Match.WindowClass = string.IsNullOrWhiteSpace(ClassBox.Text) ? null : ClassBox.Text.Trim();
+
+        var expression = ExpressionEvaluator.NormalizeCondition(ExpressionBox.Text);
+        if (!string.IsNullOrWhiteSpace(expression) &&
+            !ExpressionEvaluator.Validate(expression, out var error))
+        {
+            AppDialog.ShowError(error, "Ошибка условия");
+            return;
+        }
+        _profile.Match.Expression = string.IsNullOrWhiteSpace(expression) ? null : expression;
+
         _profile.Match.Priority = int.TryParse(PriorityBox.Text.Trim(), out var priority) ? priority : 0;
 
         Saved = true;

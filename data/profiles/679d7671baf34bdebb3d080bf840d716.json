@@ -1,0 +1,100 @@
+{
+  "Id": "679d7671baf34bdebb3d080bf840d716",
+  "Name": "Слой 1",
+  "Accent": "#F0645A",
+  "Applications": [
+    "C:\\Program Files (x86)\\Steam\\steam.exe"
+  ],
+  "ApplicationPath": "C:\\Program Files (x86)\\Steam\\steam.exe",
+  "VendorProfilePath": "D:\\Projects\\MouseMackrosSwitch\\data\\psf\\firefox.psf",
+  "PsfRevision": 4,
+  "Match": {
+    "Processes": [
+      "steam"
+    ],
+    "Priority": 40
+  },
+  "Bindings": [
+    {
+      "Button": 1,
+      "Trigger": "key:Ctrl+Shift+Alt+A",
+      "Label": "WIN+D",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Win+D",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 3,
+      "Trigger": "key:Ctrl+Shift+Alt+C",
+      "Label": "tab left",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Ctrl+Shift+Tab",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 4,
+      "Trigger": "key:Ctrl+Shift+Alt+D",
+      "Label": "Forward",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "press mouse:x2",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 6,
+      "Trigger": "key:Ctrl+Shift+Alt+F",
+      "Label": "tab right",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Ctrl+Tab",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 9,
+      "Trigger": "key:Ctrl+Shift+Alt+I",
+      "Label": "Backward",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "press mouse:x1",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 10,
+      "Trigger": "key:Ctrl+Shift+Alt+J",
+      "Label": "Fire Key (не поддерживается)",
+      "Action": {
+        "Kind": "Block",
+        "Value": "",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    }
+  ],
+  "IsFallback": false,
+  "ParentId": "games",
+  "IsManualLayer": true,
+  "LayerOrder": 1,
+  "IndicatorColor": "#0000FF",
+  "LayerNextButton": 0,
+  "LayerPrevButton": 0
+}

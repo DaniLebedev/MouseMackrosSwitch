@@ -80,6 +80,40 @@ var youtube = new Profile
 nested.Profiles.AddRange(new[] { fallback, browser, youtube });
 
 WindowInfo Win(string process, string title) => new(IntPtr.Zero, process, null, title, "");
+WindowInfo WinUrl(string process, string title, string url) =>
+    new(IntPtr.Zero, process, null, title, "", url);
+
+Check("условие: browser.url contains",
+    ExpressionEvaluator.TryEvaluate("browser.url contains \"youtube.com\"",
+        WinUrl("firefox", "Video", "https://www.youtube.com/watch?v=1"), out var e1, out _) && e1);
+Check("условие: process && title",
+    ExpressionEvaluator.TryEvaluate("process == \"firefox\" && title contains \"YouTube\"",
+        Win("firefox", "YouTube - Firefox"), out var e2, out _) && e2);
+Check("условие: отрицание и ИЛИ",
+    ExpressionEvaluator.TryEvaluate("!(process == \"chrome\") || title contains \"x\"",
+        Win("firefox", "YouTube"), out var e3, out _) && e3);
+Check("условие: == с шаблоном",
+    ExpressionEvaluator.TryEvaluate("title == \"You*\"", Win("firefox", "YouTube"), out var e4, out _) && e4);
+Check("условие: regex",
+    ExpressionEvaluator.TryEvaluate("title ~= \"^You\"", Win("firefox", "YouTube"), out var e5, out _) && e5);
+Check("условие: ошибка синтаксиса",
+    !ExpressionEvaluator.TryEvaluate("browser.url = \"x\"", Win("firefox", "x"), out _, out _));
+Check("условие: простое слово → title contains",
+    ExpressionEvaluator.NormalizeCondition("YouTube") == "title contains \"YouTube\"",
+    ExpressionEvaluator.NormalizeCondition("YouTube"));
+Check("условие: домен → browser.url contains",
+    ExpressionEvaluator.NormalizeCondition("youtube.com") == "browser.url contains \"youtube.com\"",
+    ExpressionEvaluator.NormalizeCondition("youtube.com"));
+
+var urlChild = new Profile
+{
+    Id = "yt-url", Name = "Браузер · YouTube URL", ParentId = "browser",
+    Match = new MatchRules { Expression = "browser.url contains \"youtube.com\"" }
+};
+nested.Profiles.Add(urlChild);
+Check("подпрофиль по URL",
+    ProfileEngine.SelectProfile(nested, WinUrl("firefox", "Любой заголовок", "https://www.youtube.com/watch?v=1")).Id == "yt-url",
+    ProfileEngine.SelectProfile(nested, WinUrl("firefox", "Любой заголовок", "https://www.youtube.com/watch?v=1")).Id);
 
 Check("подпрофиль: глубина = 1", nested.DepthOf(youtube) == 1, nested.DepthOf(youtube).ToString());
 Check("подпрофиль: YouTube выигрывает у родителя",

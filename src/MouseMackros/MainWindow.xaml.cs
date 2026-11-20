@@ -133,6 +133,10 @@ public partial class MainWindow : Window
             Accent = AccentBrush(profile.Accent),
             Initial = InitialOf(profile.Name),
             Icon = AppCatalog.IconFor(profile.AllApplications.FirstOrDefault()),
+            IndicatorBrush = IndicatorBrushOf(profile.IndicatorColor),
+            IndicatorVisibility = string.IsNullOrWhiteSpace(profile.IndicatorColor)
+                ? Visibility.Collapsed
+                : Visibility.Visible,
             IndentWidth = depth * 16,
             ActiveVisibility = ReferenceEquals(profile, _app.Engine.ActiveProfile)
                 ? Visibility.Visible
@@ -151,6 +155,8 @@ public partial class MainWindow : Window
             parts.Add("\"" + profile.Match.TitleContains + "\"");
         if (!string.IsNullOrWhiteSpace(profile.Match.WindowClass))
             parts.Add("класс " + profile.Match.WindowClass);
+        if (!string.IsNullOrWhiteSpace(profile.Match.Expression))
+            parts.Add(Shorten(profile.Match.Expression!, 48));
 
         if (apps.Count > 1)
             parts.Add($"{apps.Count} прил.: " +
@@ -203,6 +209,11 @@ public partial class MainWindow : Window
                 : (_selected.IsManualLayer
                     ? "Переключается вручную кнопками родительского профиля."
                     : "Включается, когда совпадают правила профиля «" + parent.Name + "» и его собственные.");
+
+            WheelColorSwatch.Background = IndicatorBrushOf(_selected.IndicatorColor);
+            WheelColorText.Text = string.IsNullOrWhiteSpace(_selected.IndicatorColor)
+                ? "цвет колеса"
+                : _selected.IndicatorColor!.ToUpperInvariant();
 
             var layerCount = _app.Config.ManualLayersOf(_selected).Count;
             LayersChip.Visibility = layerCount > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -261,6 +272,8 @@ public partial class MainWindow : Window
             parts.Add("\"" + profile.Match.TitleContains + "\"");
         if (!string.IsNullOrWhiteSpace(profile.Match.WindowClass))
             parts.Add("класс: " + profile.Match.WindowClass);
+        if (!string.IsNullOrWhiteSpace(profile.Match.Expression))
+            parts.Add(Shorten(profile.Match.Expression!, 64));
 
         return parts.Count == 0 ? "правила не заданы" : string.Join(" · ", parts);
     }
@@ -474,12 +487,18 @@ public partial class MainWindow : Window
         var suggested = window is null
             ? ""
             : SuggestTitle(window.Title, IsBrowser(window.ProcessName));
+        var host = window?.Url is { } url ? UrlHost(url) : null;
+        var label = !string.IsNullOrWhiteSpace(suggested)
+            ? suggested
+            : host ?? "";
+        var condition = SuggestCondition(window?.Url, suggested);
 
         var dialog = new SubProfileDialog(
             parent.Name,
-            string.IsNullOrWhiteSpace(suggested) ? parent.Name + " — подпрофиль" : parent.Name + " · " + suggested,
-            suggested,
-            window?.Title ?? "") { Owner = this };
+            string.IsNullOrWhiteSpace(label) ? parent.Name + " — подпрофиль" : parent.Name + " · " + label,
+            condition,
+            window?.Title ?? "",
+            window?.Url ?? "") { Owner = this };
 
         if (dialog.ShowDialog() != true) return;
 
@@ -492,9 +511,9 @@ public partial class MainWindow : Window
         child.IsManualLayer = false;
         child.LayerNextButton = 0;
         child.LayerPrevButton = 0;
-        child.Match.TitleContains = string.IsNullOrWhiteSpace(dialog.TitleContains)
-            ? null
-            : dialog.TitleContains.Trim();
+        child.Match.TitleContains = null;
+        child.Match.WindowClass = null;
+        child.Match.Expression = dialog.Condition;
         child.Match.Priority = parent.Match.Priority;
 
         _app.Config.Profiles.Add(child);
@@ -512,6 +531,26 @@ public partial class MainWindow : Window
     private static bool IsBrowser(string process) =>
         process is "firefox" or "chrome" or "msedge" or "brave" or "opera" or "vivaldi"
             or "yandex" or "librewolf" or "thorium" or "arc";
+
+    private static string? UrlHost(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host))
+            return uri.Host;
+        return null;
+    }
+
+    private static string SuggestCondition(string? url, string? titleSuggestion)
+    {
+        var host = UrlHost(url);
+        if (!string.IsNullOrWhiteSpace(host))
+            return $"browser.url contains \"{host}\"";
+
+        if (!string.IsNullOrWhiteSpace(titleSuggestion))
+            return $"title contains \"{titleSuggestion.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
+
+        return "";
+    }
 
     /// <summary>Turns a browser title into a likely site name ("Video - YouTube" → "YouTube").</summary>
     private static string SuggestTitle(string title, bool browser)
@@ -653,6 +692,18 @@ public partial class MainWindow : Window
     }
 
     public void SetStatusText(string text) => LastInputText.Text = text;
+
+    private void WheelColor_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null) return;
+
+        var dialog = new ColorPickerDialog(_selected.IndicatorColor) { Owner = this };
+        if (dialog.ShowDialog() != true || !dialog.Saved) return;
+
+        _selected.IndicatorColor = dialog.SelectedColor;
+        Commit();
+        LastInputText.Text = "Цвет колеса обновлён";
+    }
 
     private void MakeDefault_Click(object sender, RoutedEventArgs e)
     {
@@ -1028,6 +1079,19 @@ public partial class MainWindow : Window
         }
     }
 
+    private static Brush IndicatorBrushOf(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return Brushes.Transparent;
+        try
+        {
+            return new SolidColorBrush((Color)System.Windows.Media.ColorConverter.ConvertFromString(hex));
+        }
+        catch
+        {
+            return Brushes.Transparent;
+        }
+    }
+
     public static string DescribeAction(ActionSpec action) => action.Kind switch
     {
         ActionKind.PassThrough => "Пропускать как есть",
@@ -1154,6 +1218,8 @@ public partial class MainWindow : Window
         public string Initial { get; init; } = "";
         public Brush Accent { get; init; } = Brushes.Gray;
         public ImageSource? Icon { get; init; }
+        public Brush IndicatorBrush { get; init; } = Brushes.Transparent;
+        public Visibility IndicatorVisibility { get; init; } = Visibility.Collapsed;
         public double IndentWidth { get; init; }
         public Visibility ActiveVisibility { get; init; } = Visibility.Collapsed;
     }
