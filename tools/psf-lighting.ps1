@@ -26,6 +26,9 @@
   .\tools\psf-lighting.ps1 -Row 2 -Color 8000FF
 
 .EXAMPLE
+  .\tools\psf-lighting.ps1 -Debounce 10
+
+.EXAMPLE
   .\tools\psf-lighting.ps1 -Restore
 #>
 [CmdletBinding()]
@@ -40,6 +43,7 @@ param(
     [int]$Speed = -1,
     [int]$Brightness = -1,
     [int]$Direction = -1,
+    [int]$Debounce = -1,
     [switch]$Logo,
     [switch]$Show,
     [switch]$Restore,
@@ -85,6 +89,9 @@ function Show-Rows([string]$text, [string]$title) {
     Write-Host ("Mode=" + (Get-Field $text 'Lighting1ModeValue') +
                 "  Name=" + (Get-Field $text 'Lighting1Name') +
                 "  OffOn=" + (Get-Field $text 'Lighting1OffOn'))
+    Write-Host ("KeyDebounce=" + (Get-Field $text 'KeyDebounce') +
+                "  Polling=" + (Get-Field $text 'PollingRateName') +
+                " (" + (Get-Field $text 'PollingRateValue') + ")")
     for ($r = 0; $r -lt [Math]::Min($sel.Count, 11); $r++) {
         $f = $sel[$r].Split('|')
         $c = $col[$r].Split('|')
@@ -117,6 +124,18 @@ if (!$Show -and (Get-Process GamingMS -ErrorAction SilentlyContinue) -and !$Forc
 $text = [IO.File]::ReadAllText($Profile, [Text.Encoding]::Unicode)
 
 if ($Show) {
+    Show-Rows $text $Profile
+    return
+}
+
+if ($Debounce -ge 0) {
+    if ($Debounce -lt 1 -or $Debounce -gt 50) { throw "Debounce must be 1..50 ms" }
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $backupPath = Join-Path $dir "$base.bak-$stamp"
+    [IO.File]::WriteAllText($backupPath, $text, [Text.Encoding]::Unicode)
+    $text = Set-Field $text 'KeyDebounce' "$Debounce"
+    [IO.File]::WriteAllText($Profile, $text, [Text.Encoding]::Unicode)
+    Write-Host "Updated KeyDebounce=$Debounce (backup: $backupPath)" -ForegroundColor Green
     Show-Rows $text $Profile
     return
 }
