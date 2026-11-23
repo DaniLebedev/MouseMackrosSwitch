@@ -50,6 +50,27 @@ public static class MacroScript
                     break;
                 }
 
+                case "move":
+                {
+                    var bits = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    int dx = bits.Length > 0 ? ParseSigned(bits[0], 0) : 0;
+                    int dy = bits.Length > 1 ? ParseSigned(bits[1], 0) : 0;
+                    steps.Add(new MacroStep("move", null, Math.Clamp(dx, -4000, 4000),
+                        Math.Clamp(dy, -4000, 4000), 0, null));
+                    break;
+                }
+
+                case "cursor":
+                {
+                    var bits = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    var dir = bits.Length > 0 ? bits[0].ToLowerInvariant() : "right";
+                    int amount = bits.Length > 1 ? Math.Clamp(ParseInt(bits[1], 10), 1, 127) : 10;
+                    int dx = dir is "left" or "влево" ? -amount : dir is "right" or "вправо" ? amount : 0;
+                    int dy = dir is "up" or "вверх" ? -amount : dir is "down" or "вниз" ? amount : 0;
+                    steps.Add(new MacroStep("move", null, dx, dy, 0, null));
+                    break;
+                }
+
                 case "press":
                 case "down":
                 case "up":
@@ -106,6 +127,12 @@ public static class MacroScript
         return m.Success && int.TryParse(m.Value, out var v) ? v : fallback;
     }
 
+    private static int ParseSigned(string s, int fallback) =>
+        int.TryParse(s, System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out var v)
+            ? v
+            : fallback;
+
     public static string ToHelpText() =>
         "press Ctrl+A — нажать сочетание\n" +
         "down Shift — зажать\n" +
@@ -113,6 +140,8 @@ public static class MacroScript
         "delay 100 — пауза, мс\n" +
         "text Привет — напечатать текст\n" +
         "wheel down 2 — прокрутить колесо\n" +
+        "move 10 -5 — сдвинуть курсор (x y)\n" +
+        "cursor right 10 — сдвинуть курсор вправо\n" +
         "press mouse:left — клик мышью";
 }
 
@@ -285,6 +314,9 @@ public sealed class ActionExecutor : IDisposable
                     case "wheel":
                         InputSender.Wheel(step.Number * (step.Key == "down" ? -1 : 1),
                             step.Key is "left" or "right");
+                        break;
+                    case "move":
+                        InputSender.MoveRelative(step.Modifiers1, step.Modifiers2);
                         break;
                     case "press":
                         if (step.Key is null) break;

@@ -425,6 +425,10 @@
                                                                 VerticalAlignment="Center">
                                                         <Button Style="{StaticResource GhostButton}" Content="Тест"
                                                                 Padding="8,4" Click="TestBinding_Click" />
+                                                        <Button Style="{StaticResource GhostButton}" Content="Макрос…"
+                                                                Padding="8,4" Margin="2,0,0,0"
+                                                                Click="Macro_Click"
+                                                                ToolTip="Свой макрос: текст, клики, задержки, курсор" />
                                                         <Button Style="{StaticResource GhostButton}" Content="Подпись…"
                                                                 Padding="8,4" Margin="2,0,0,0"
                                                                 Click="Label_Click"

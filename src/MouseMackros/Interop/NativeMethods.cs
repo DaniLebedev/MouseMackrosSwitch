@@ -67,6 +67,7 @@ internal static class NativeMethods
     public const uint MAPVK_VK_TO_VSC = 0;
     public const uint MAPVK_VSC_TO_VK = 1;
 
+    public const uint MOUSEEVENTF_MOVE = 0x0001;
     public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
     public const uint MOUSEEVENTF_LEFTUP = 0x0004;
     public const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;

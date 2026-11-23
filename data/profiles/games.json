@@ -83,6 +83,6 @@
   "IsManualLayer": false,
   "LayerOrder": 0,
   "IndicatorColor": "#FF0000",
-  "LayerNextButton": 4,
-  "LayerPrevButton": 9
+  "LayerNextButton": 16,
+  "LayerPrevButton": 0
 }

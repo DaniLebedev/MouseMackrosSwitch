@@ -6,7 +6,7 @@
     "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
   ],
   "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-  "VendorProfilePath": "D:\\Projects\\MouseMackrosSwitch\\data\\psf\\firefox.psf",
+  "VendorProfilePath": "D:\\Projects\\MouseMackrosSwitch\\data\\psf\\CVAT_Job.psf",
   "PsfRevision": 4,
   "Match": {
     "Processes": [
@@ -22,17 +22,29 @@
       "thorium",
       "arc"
     ],
-    "TitleContains": "youtube",
+    "Expression": "browser.url contains \"26.26.77.98\"",
     "Priority": 20
   },
   "Bindings": [
     {
       "Button": 1,
       "Trigger": "key:Ctrl+Shift+Alt+A",
-      "Label": "WIN+D",
+      "Label": "N",
       "Action": {
         "Kind": "Keys",
-        "Value": "Win+D",
+        "Value": "N",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 2,
+      "Trigger": "key:Ctrl+Shift+Alt+B",
+      "Label": "Enter",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Enter",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -41,10 +53,10 @@
     {
       "Button": 3,
       "Trigger": "key:Ctrl+Shift+Alt+C",
-      "Label": "tab left",
+      "Label": "Paste",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Shift+Tab",
+        "Value": "Ctrl+V",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -53,11 +65,22 @@
     {
       "Button": 4,
       "Trigger": "key:Ctrl+Shift+Alt+D",
-      "Label": "Forward",
+      "Label": "D",
       "Action": {
-        "Kind": "Macro",
-        "Value": "",
-        "Script": "press mouse:x2",
+        "Kind": "Keys",
+        "Value": "D",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 5,
+      "Trigger": "key:Ctrl+Shift+Alt+E",
+      "Label": "Esc",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Esc",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -66,10 +89,34 @@
     {
       "Button": 6,
       "Trigger": "key:Ctrl+Shift+Alt+F",
-      "Label": "tab right",
+      "Label": "Copy",
       "Action": {
         "Kind": "Keys",
-        "Value": "Ctrl+Tab",
+        "Value": "Ctrl+C",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 7,
+      "Trigger": "key:Ctrl+Shift+Alt+G",
+      "Label": "Del",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Delete",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 8,
+      "Trigger": "key:Ctrl+Shift+Alt+H",
+      "Label": "Shift+Win+S",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Shift+Win+S",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -78,11 +125,10 @@
     {
       "Button": 9,
       "Trigger": "key:Ctrl+Shift+Alt+I",
-      "Label": "Backward",
+      "Label": "F",
       "Action": {
-        "Kind": "Macro",
-        "Value": "",
-        "Script": "press mouse:x1",
+        "Kind": "Keys",
+        "Value": "F",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -91,10 +137,22 @@
     {
       "Button": 10,
       "Trigger": "key:Ctrl+Shift+Alt+J",
-      "Label": "Fire Key (не поддерживается)",
+      "Label": "Ctrl+Shift+Alt+X",
       "Action": {
-        "Kind": "Block",
-        "Value": "",
+        "Kind": "Keys",
+        "Value": "Ctrl+Shift+Alt+X",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 11,
+      "Trigger": "key:Ctrl+Shift+Alt+K",
+      "Label": "Ctrl+Shift+Alt+D",
+      "Action": {
+        "Kind": "Keys",
+        "Value": "Ctrl+Shift+Alt+D",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -105,6 +163,7 @@
   "ParentId": "browser",
   "IsManualLayer": false,
   "LayerOrder": 0,
+  "IndicatorColor": "#9B6BF2",
   "LayerNextButton": 0,
   "LayerPrevButton": 0
 }

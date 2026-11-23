@@ -85,6 +85,28 @@ internal static class InputSender
         Send(input);
     }
 
+    /// <summary>Moves the pointer by a relative offset (pixels).</summary>
+    public static void MoveRelative(int dx, int dy)
+    {
+        if (dx == 0 && dy == 0) return;
+        var input = new NativeMethods.INPUT
+        {
+            type = NativeMethods.INPUT_MOUSE,
+            u = new NativeMethods.InputUnion
+            {
+                mi = new NativeMethods.MOUSEINPUT
+                {
+                    dx = dx,
+                    dy = dy,
+                    mouseData = 0,
+                    dwFlags = NativeMethods.MOUSEEVENTF_MOVE,
+                    dwExtraInfo = Magic
+                }
+            }
+        };
+        Send(input);
+    }
+
     public static void Wheel(int ticks, bool horizontal = false)
     {
         var input = new NativeMethods.INPUT

@@ -763,6 +763,21 @@ public partial class MainWindow : Window
     private ButtonRow? RowOf(object sender) =>
         sender is FrameworkElement { DataContext: ButtonRow row } ? row : null;
 
+    private void Macro_Click(object sender, RoutedEventArgs e)
+    {
+        var row = RowOf(sender);
+        if (row?.Model is null) return;
+
+        var dialog = new MacroDialog(row.Model.Action, _app.Engine) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
+        row.Model.Action = dialog.Action;
+        if (string.IsNullOrWhiteSpace(row.Model.Label))
+            row.Model.Label = "Макрос";
+        Commit();
+        LastInputText.Text = "Макрос сохранён";
+    }
+
     private void Label_Click(object sender, RoutedEventArgs e)
     {
         var row = RowOf(sender);

@@ -232,6 +232,12 @@ Check("макрос вкладок: Ctrl зажат",
 Check("макрос вкладок: Tab отпущен",
     tabMacro[3].Kind == "up" && tabMacro[3].Key == "9", tabMacro[3].Key);
 
+var motion = MacroScript.Parse("move 10 -5\ncursor right 7\ncursor up 3");
+Check("макрос: move", motion.Count == 3 &&
+    motion[0].Kind == "move" && motion[0].Modifiers1 == 10 && motion[0].Modifiers2 == -5);
+Check("макрос: cursor right", motion[1].Modifiers1 == 7 && motion[1].Modifiers2 == 0);
+Check("макрос: cursor up", motion[2].Modifiers1 == 0 && motion[2].Modifiers2 == -3);
+
 // ---------------------------------------------------------------- psf
 Check("кодирование A", PsfGenerator.EncodeLetterTrigger('A') == "700704",
     PsfGenerator.EncodeLetterTrigger('A'));

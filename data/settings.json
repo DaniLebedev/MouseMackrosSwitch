@@ -2,7 +2,7 @@
   "Version": 2,
   "Enabled": true,
   "ShowToast": true,
-  "StartWithWindows": false,
+  "StartWithWindows": true,
   "ToggleHotkey": "Ctrl+Alt+P",
   "DefaultProfileId": "default"
 }

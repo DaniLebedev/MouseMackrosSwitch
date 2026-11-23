@@ -12,6 +12,7 @@
   "IsFallback": true,
   "IsManualLayer": false,
   "LayerOrder": 0,
+  "IndicatorColor": "#00FF00",
   "LayerNextButton": 0,
   "LayerPrevButton": 0
 }
