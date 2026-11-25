@@ -3,7 +3,8 @@ const vscode = require('vscode');
 const TOP_LEVEL = [
   'press', 'down', 'up', 'delay', 'wait', 'text', 'type', 'wheel', 'move', 'cursor',
   'browser', 'clipboard', 'run', 'open', 'window', 'volume', 'mute', 'media',
-  'screenshot', 'lock', 'sleep', 'profile', 'layer', 'repeat', 'if'
+  'screenshot', 'lock', 'sleep', 'profile', 'layer', 'repeat', 'while', 'if',
+  'set', 'let', 'inc', 'dec'
 ];
 
 const BROWSER_OPS = [
@@ -140,7 +141,15 @@ function validate(document) {
 
     if (line.endsWith('{')) {
       const header = line.slice(0, -1).trim();
-      if (/^repeat\b/i.test(header)) {
+      if (/^repeat\s+while\b/i.test(header)) {
+        if (!header.replace(/^repeat\s+while\b/i, '').trim()) {
+          push('После repeat while нужно условие.');
+        }
+      } else if (/^while\b/i.test(header)) {
+        if (!header.replace(/^while\b/i, '').trim()) {
+          push('После while нужно условие.');
+        }
+      } else if (/^repeat\b/i.test(header)) {
         const count = header.replace(/^repeat\b/i, '').trim();
         if (!/^\d+$/.test(count) || Number(count) < 1) {
           push('После repeat нужно положительное число: repeat 5 {');
@@ -148,7 +157,7 @@ function validate(document) {
       } else if (/^if\b/i.test(header)) {
         if (!header.slice(2).trim()) push('После if нужно условие.');
       } else {
-        push('Неизвестный блок. Ожидается repeat N { или if условие {.');
+        push('Неизвестный блок. Ожидается repeat N {, while условие { или if условие {.');
       }
       continue;
     }
@@ -179,6 +188,23 @@ function validate(document) {
       case 'text':
       case 'type':
         if (rest.length === 0) push('text требует текст после команды.');
+        break;
+      case 'set':
+      case 'let':
+        if (rest.length < 2) push(command + ' требует имя и значение.');
+        else if (!/^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё0-9_]*$/.test(rest[0])) {
+          push('Некорректное имя переменной.');
+        }
+        break;
+      case 'inc':
+      case 'dec':
+        if (rest.length === 0) push(command + ' требует имя переменной.');
+        else if (rest.length > 1 && !/^[+-]?\d+$/.test(rest[1])) {
+          push(command + ' принимает только числовой шаг.');
+        }
+        break;
+      case 'while':
+        push('У команды while должен быть блок { ... }.');
         break;
       case 'browser':
         checkBrowser(rest, push);

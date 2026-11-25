@@ -14,23 +14,26 @@ public static class BrowserMacro
     private static readonly Regex PagePattern = new(
         @"([?&]page=)(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public static bool TryChangePage(WindowInfo? window, int delta, out string error)
+    public static bool TryChangePage(WindowInfo? window, int delta,
+        int typingDelayMs, out string error)
     {
         if (!TryCurrentUrl(window, out var url, out error)) return false;
         if (!TryReplacePage(url, delta, out var next, out error)) return false;
-        Navigate(next);
+        Navigate(next, typingDelayMs);
         return true;
     }
 
-    public static bool TrySetPage(WindowInfo? window, int page, out string error)
+    public static bool TrySetPage(WindowInfo? window, int page,
+        int typingDelayMs, out string error)
     {
         if (!TryCurrentUrl(window, out var url, out error)) return false;
         if (!TrySetPageValue(url, page, out var next, out error)) return false;
-        Navigate(next);
+        Navigate(next, typingDelayMs);
         return true;
     }
 
-    public static bool TryGoTo(WindowInfo? window, string url, out string error)
+    public static bool TryGoTo(WindowInfo? window, string url,
+        int typingDelayMs, out string error)
     {
         error = "";
         if (window is null || !BrowserUrlReader.IsBrowser(window.ProcessName))
@@ -47,7 +50,7 @@ public static class BrowserMacro
             return false;
         }
 
-        Navigate(url.Trim());
+        Navigate(url.Trim(), typingDelayMs);
         return true;
     }
 
@@ -101,40 +104,44 @@ public static class BrowserMacro
         return true;
     }
 
-    public static bool TrySetQuery(WindowInfo? window, string name, string value, out string error)
+    public static bool TrySetQuery(WindowInfo? window, string name, string value,
+        int typingDelayMs, out string error)
     {
         if (!TryCurrentUrl(window, out var url, out error)) return false;
         if (!TrySetQueryValue(url, name, value, out var next, out error)) return false;
-        Navigate(next);
+        Navigate(next, typingDelayMs);
         return true;
     }
 
-    public static bool TryChangeQuery(WindowInfo? window, string name, int delta, out string error)
+    public static bool TryChangeQuery(WindowInfo? window, string name, int delta,
+        int typingDelayMs, out string error)
     {
         if (!TryCurrentUrl(window, out var url, out error)) return false;
         if (!TryChangeQueryValue(url, name, delta, out var next, out error)) return false;
-        Navigate(next);
+        Navigate(next, typingDelayMs);
         return true;
     }
 
-    public static bool TrySetPath(WindowInfo? window, int index, string value, out string error)
+    public static bool TrySetPath(WindowInfo? window, int index, string value,
+        int typingDelayMs, out string error)
     {
         if (!TryCurrentUrl(window, out var url, out error)) return false;
         if (!TrySetPathValue(url, index, value, out var next, out error)) return false;
-        Navigate(next);
+        Navigate(next, typingDelayMs);
         return true;
     }
 
-    public static bool TryChangePath(WindowInfo? window, int index, int delta, out string error)
+    public static bool TryChangePath(WindowInfo? window, int index, int delta,
+        int typingDelayMs, out string error)
     {
         if (!TryCurrentUrl(window, out var url, out error)) return false;
         if (!TryChangePathValue(url, index, delta, out var next, out error)) return false;
-        Navigate(next);
+        Navigate(next, typingDelayMs);
         return true;
     }
 
     public static bool TryNewTab(WindowInfo? window, string? url, int position,
-        bool background, out string error)
+        bool background, int typingDelayMs, out string error)
     {
         if (!TryBrowserWindow(window, out error)) return false;
 
@@ -156,7 +163,7 @@ public static class BrowserMacro
         Thread.Sleep(100);
 
         if (!string.IsNullOrWhiteSpace(url))
-            Navigate(url.Trim());
+            Navigate(url.Trim(), typingDelayMs);
 
         if (background)
         {
@@ -184,7 +191,8 @@ public static class BrowserMacro
         return true;
     }
 
-    public static bool TryOpenInNewTab(WindowInfo? window, string? url, out string error)
+    public static bool TryOpenInNewTab(WindowInfo? window, string? url,
+        int typingDelayMs, out string error)
     {
         if (string.IsNullOrWhiteSpace(url))
         {
@@ -192,7 +200,7 @@ public static class BrowserMacro
             url = current;
         }
 
-        return TryNewTab(window, url, 0, false, out error);
+        return TryNewTab(window, url, 0, false, typingDelayMs, out error);
     }
 
     public static bool TryGoBack(WindowInfo? window, out string error)
@@ -260,14 +268,15 @@ public static class BrowserMacro
         return true;
     }
 
-    public static bool TryFind(WindowInfo? window, string text, out string error)
+    public static bool TryFind(WindowInfo? window, string text,
+        int typingDelayMs, out string error)
     {
         if (!TryBrowserWindow(window, out error)) return false;
         InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, 0x46);
         Thread.Sleep(80);
         if (!string.IsNullOrEmpty(text))
         {
-            TypeText(text);
+            TypeText(text, typingDelayMs);
             InputSender.KeyDown(0x0D);
             InputSender.KeyUp(0x0D);
             Thread.Sleep(80);
@@ -275,7 +284,8 @@ public static class BrowserMacro
         return true;
     }
 
-    public static bool TrySearch(WindowInfo? window, string query, out string error)
+    public static bool TrySearch(WindowInfo? window, string query,
+        int typingDelayMs, out string error)
     {
         if (!TryBrowserWindow(window, out error)) return false;
         if (string.IsNullOrWhiteSpace(query))
@@ -286,7 +296,7 @@ public static class BrowserMacro
 
         InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, 0x4C);
         Thread.Sleep(80);
-        TypeText(query);
+        TypeText(query, typingDelayMs);
         InputSender.KeyDown(0x0D);
         InputSender.KeyUp(0x0D);
         Thread.Sleep(120);
@@ -512,7 +522,7 @@ public static class BrowserMacro
         return true;
     }
 
-    private static void Navigate(string url)
+    private static void Navigate(string url, int typingDelayMs)
     {
         InputSender.ReleaseHeldModifiers();
 
@@ -520,20 +530,26 @@ public static class BrowserMacro
         InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, 0x4C);
         Thread.Sleep(90);
 
-        TypeText(url);
+        TypeText(url, typingDelayMs);
 
         InputSender.KeyDown(0x0D);
         InputSender.KeyUp(0x0D);
         Thread.Sleep(150);
     }
 
-    private static void TypeText(string text)
+    private static void TypeText(string text, int typingDelayMs)
     {
+        if (typingDelayMs < 0)
+        {
+            InputSender.SendUnicodeText(text);
+            return;
+        }
+
         foreach (var ch in text)
         {
             InputSender.SendUnicode(ch, true);
             InputSender.SendUnicode(ch, false);
-            Thread.Sleep(2);
+            if (typingDelayMs > 0) Thread.Sleep(typingDelayMs);
         }
     }
 }

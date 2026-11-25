@@ -5,12 +5,13 @@ namespace MouseMackros;
 
 public partial class AnnotationDialog : Window
 {
-    private AnnotationDialog(string title, string hint, string current)
+    private AnnotationDialog(string title, string hint, string current, string? footer)
     {
         InitializeComponent();
         TitleText.Text = title;
         HintText.Text = hint;
         ValueBox.Text = current;
+        if (!string.IsNullOrWhiteSpace(footer)) FooterText.Text = footer;
 
         Loaded += (_, _) =>
         {
@@ -21,9 +22,10 @@ public partial class AnnotationDialog : Window
 
     public string? Result { get; private set; }
 
-    public static string? Edit(Window owner, string title, string hint, string current)
+    public static string? Edit(Window owner, string title, string hint, string current,
+        string? footer = null)
     {
-        var dialog = new AnnotationDialog(title, hint, current) { Owner = owner };
+        var dialog = new AnnotationDialog(title, hint, current, footer) { Owner = owner };
         return dialog.ShowDialog() == true ? dialog.Result : null;
     }
 

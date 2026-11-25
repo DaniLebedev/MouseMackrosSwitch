@@ -315,6 +315,12 @@
                                                        FontSize="11" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
+                                    <Button Style="{StaticResource GhostButton}" Click="TypingSpeed_Click"
+                                            Padding="6,2" Margin="0,0,6,0"
+                                            ToolTip="Скорость набора текста для этого профиля">
+                                        <TextBlock x:Name="TypingSpeedText" Text="набор: 3 мс"
+                                                   FontSize="11" VerticalAlignment="Center" />
+                                    </Button>
                                 </WrapPanel>
                                 <Border x:Name="VendorBanner" Background="#2A2318" BorderBrush="#5A4420"
                                         BorderThickness="1" CornerRadius="7" Padding="8,5" Margin="0,2,0,0"

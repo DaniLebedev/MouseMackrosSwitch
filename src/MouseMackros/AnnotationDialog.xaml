@@ -31,7 +31,7 @@
             <StackPanel Grid.Row="1" Margin="20,16,20,8">
                 <TextBlock x:Name="HintText" Style="{StaticResource MutedText}" TextWrapping="Wrap" />
                 <TextBox x:Name="ValueBox" Margin="0,10,0,0" MaxLength="80" />
-                <TextBlock Text="Подпись видна только в MouseMackros и не меняет действие кнопки."
+                <TextBlock x:Name="FooterText" Text="Подпись видна только в MouseMackros и не меняет действие кнопки."
                            Style="{StaticResource MutedText}" FontSize="11" Margin="0,8,0,0"
                            TextWrapping="Wrap" />
             </StackPanel>

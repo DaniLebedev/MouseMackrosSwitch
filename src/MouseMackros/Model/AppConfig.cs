@@ -159,6 +159,12 @@ public sealed class Profile
     /// <summary>Wheel/DPI indicator color for this profile or manual layer (#RRGGBB).</summary>
     public string? IndicatorColor { get; set; }
 
+    /// <summary>
+    /// Typing delay override for macros in this profile, milliseconds.
+    /// null = use the global setting, -1 = instant.
+    /// </summary>
+    public int? TypingDelayMs { get; set; }
+
     /// <summary>Physical button that switches to the next manual layer (0 = none).</summary>
     public int LayerNextButton { get; set; }
 
@@ -244,6 +250,10 @@ public sealed class AppConfig
     public bool StartWithWindows { get; set; }
     public string ToggleHotkey { get; set; } = "Ctrl+Alt+P";
     public string DefaultProfileId { get; set; } = "default";
+
+    /// <summary>Default delay between typed characters, milliseconds. -1 = instant.</summary>
+    public int TypingDelayMs { get; set; } = 3;
+
     public List<Profile> Profiles { get; set; } = new();
 
     public Profile? GetProfile(string? id) =>

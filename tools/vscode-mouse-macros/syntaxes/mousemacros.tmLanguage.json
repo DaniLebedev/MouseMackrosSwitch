@@ -45,6 +45,10 @@
         {
           "name": "variable.other.mousemacros",
           "match": "\\{(clipboard|date|time|url|title|process|param:[^{}]+)\\}"
+        },
+        {
+          "name": "variable.other.mousemacros",
+          "match": "\\{[A-Za-zА-Яа-яЁё_][^{}]*\\}"
         }
       ]
     },
@@ -52,7 +56,7 @@
       "patterns": [
         {
           "name": "keyword.control.mousemacros",
-          "match": "\\b(repeat|if|else)\\b"
+          "match": "\\b(repeat|while|if|else)\\b"
         }
       ]
     },
@@ -60,7 +64,7 @@
       "patterns": [
         {
           "name": "keyword.control.mousemacros",
-          "match": "\\b(press|down|up|delay|wait|text|type|wheel|move|cursor|browser|clipboard|run|open|window|volume|mute|media|screenshot|lock|sleep|profile|layer)\\b"
+          "match": "\\b(press|down|up|delay|wait|text|type|wheel|move|cursor|browser|clipboard|run|open|window|volume|mute|media|screenshot|lock|sleep|profile|layer|set|let|inc|dec|speed)\\b"
         },
         {
           "name": "support.function.mousemacros",

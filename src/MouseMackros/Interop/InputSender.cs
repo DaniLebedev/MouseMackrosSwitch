@@ -56,6 +56,44 @@ internal static class InputSender
         Send(input);
     }
 
+    /// <summary>Types a string as Unicode in a few large SendInput batches.</summary>
+    public static void SendUnicodeText(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+
+        const int chunkSize = 256;
+        for (int offset = 0; offset < text.Length; offset += chunkSize)
+        {
+            int count = Math.Min(chunkSize, text.Length - offset);
+            var inputs = new NativeMethods.INPUT[count * 2];
+
+            for (int i = 0; i < count; i++)
+            {
+                char ch = text[offset + i];
+                inputs[i * 2] = UnicodeInput(ch, true);
+                inputs[i * 2 + 1] = UnicodeInput(ch, false);
+            }
+
+            SendAll(inputs);
+        }
+    }
+
+    private static NativeMethods.INPUT UnicodeInput(char ch, bool down) => new()
+    {
+        type = NativeMethods.INPUT_KEYBOARD,
+        u = new NativeMethods.InputUnion
+        {
+            ki = new NativeMethods.KEYBDINPUT
+            {
+                wVk = 0,
+                wScan = ch,
+                dwFlags = NativeMethods.KEYEVENTF_UNICODE |
+                          (down ? 0u : NativeMethods.KEYEVENTF_KEYUP),
+                dwExtraInfo = Magic
+            }
+        }
+    };
+
     public static void MouseButton(string button, bool down)
     {
         uint flag;

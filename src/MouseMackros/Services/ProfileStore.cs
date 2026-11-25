@@ -14,6 +14,7 @@ public sealed class AppSettings
     public bool StartWithWindows { get; set; }
     public string ToggleHotkey { get; set; } = "Ctrl+Alt+P";
     public string DefaultProfileId { get; set; } = "default";
+    public int TypingDelayMs { get; set; } = 3;
 }
 
 /// <summary>
@@ -171,6 +172,7 @@ public static class ProfileStore
             config.StartWithWindows = settings.StartWithWindows;
             config.ToggleHotkey = string.IsNullOrWhiteSpace(settings.ToggleHotkey) ? "Ctrl+Alt+P" : settings.ToggleHotkey;
             config.DefaultProfileId = string.IsNullOrWhiteSpace(settings.DefaultProfileId) ? "default" : settings.DefaultProfileId;
+            config.TypingDelayMs = settings.TypingDelayMs < -1 ? 3 : settings.TypingDelayMs;
             config.Version = Math.Max(2, settings.Version);
         }
 
@@ -266,8 +268,18 @@ public static class ProfileStore
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var counter = 0;
 
+        config.TypingDelayMs = config.TypingDelayMs switch
+        {
+            < -1 => 3,
+            > 5000 => 5000,
+            _ => config.TypingDelayMs
+        };
+
         foreach (var profile in config.Profiles)
         {
+            if (profile.TypingDelayMs is < -1) profile.TypingDelayMs = -1;
+            if (profile.TypingDelayMs is > 5000) profile.TypingDelayMs = 5000;
+
             if (string.IsNullOrWhiteSpace(profile.Id) || !seen.Add(profile.Id))
             {
                 do
@@ -432,7 +444,8 @@ public static class ProfileStore
                 ShowToast = config.ShowToast,
                 StartWithWindows = config.StartWithWindows,
                 ToggleHotkey = config.ToggleHotkey,
-                DefaultProfileId = config.DefaultProfileId
+                DefaultProfileId = config.DefaultProfileId,
+                TypingDelayMs = config.TypingDelayMs
             };
             WriteAtomic(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
 

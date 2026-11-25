@@ -4,5 +4,6 @@
   "ShowToast": true,
   "StartWithWindows": true,
   "ToggleHotkey": "Ctrl+Alt+P",
-  "DefaultProfileId": "default"
+  "DefaultProfileId": "default",
+  "TypingDelayMs": 3
 }

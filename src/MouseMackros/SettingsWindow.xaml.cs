@@ -21,6 +21,7 @@ public partial class SettingsWindow : Window
         ToastCheck.IsChecked = config.ShowToast;
         AutostartCheck.IsChecked = StartupService.IsEnabled();
         HotkeyBox.Text = config.ToggleHotkey;
+        TypingSpeedBox.Text = config.TypingDelayMs.ToString();
         DataPathText.Text = ProfileStore.RootDir;
     }
 
@@ -62,10 +63,18 @@ public partial class SettingsWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
+        if (!int.TryParse(TypingSpeedBox.Text.Trim(), out var typingDelay) ||
+            typingDelay < -1 || typingDelay > 5000)
+        {
+            AppDialog.ShowError("Скорость набора: укажите число от -1 до 5000.", "Настройки");
+            return;
+        }
+
         _config.Enabled = EnabledCheck.IsChecked == true;
         _config.ShowToast = ToastCheck.IsChecked == true;
         _config.StartWithWindows = AutostartCheck.IsChecked == true;
         _config.ToggleHotkey = _hotkey;
+        _config.TypingDelayMs = typingDelay;
 
         StartupService.Apply(_config.StartWithWindows);
         Changed = true;

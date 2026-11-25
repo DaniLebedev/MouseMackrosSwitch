@@ -208,5 +208,25 @@
     "prefix": "layer",
     "body": ["layer ${1:next}"],
     "description": "Переключить ручной слой"
+  },
+  "Переменная": {
+    "prefix": "set",
+    "body": ["set ${1:name} = ${2:value}"],
+    "description": "Задать переменную"
+  },
+  "Увеличить переменную": {
+    "prefix": "inc",
+    "body": ["inc ${1:counter} ${2:1}"],
+    "description": "Увеличить переменную"
+  },
+  "Цикл while": {
+    "prefix": "while",
+    "body": ["while ${1:counter < 10} {", "\t$0", "}"],
+    "description": "Повторять, пока условие верно"
+  },
+  "Текст с задержкой": {
+    "prefix": "textspeed",
+    "body": ["text \"${1:текст}\" ${2:100}"],
+    "description": "Напечатать текст с задержкой между символами"
   }
 }

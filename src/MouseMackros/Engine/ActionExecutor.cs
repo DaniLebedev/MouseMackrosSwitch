@@ -12,9 +12,14 @@ public sealed class ActionExecutor : IDisposable
     private readonly Dictionary<string, CancellationTokenSource> _running = new();
     private readonly object _gate = new();
     private readonly Func<WindowInfo?>? _windowProvider;
+    private readonly Func<int>? _defaultTypingDelay;
 
-    public ActionExecutor(Func<WindowInfo?>? windowProvider = null) =>
+    public ActionExecutor(Func<WindowInfo?>? windowProvider = null,
+        Func<int>? defaultTypingDelay = null)
+    {
         _windowProvider = windowProvider;
+        _defaultTypingDelay = defaultTypingDelay;
+    }
 
     public event Action<string>? ProfileSwitchRequested;
     public event Action<int>? ProfileCycleRequested;
@@ -187,11 +192,17 @@ public sealed class ActionExecutor : IDisposable
         if (action.Mode == MacroMode.Once) repeats++;
         else repeats = Math.Max(1, repeats);
 
+        var context = new MacroContext
+        {
+            DefaultTypingDelayMs = _defaultTypingDelay?.Invoke() ?? 3
+        };
+
         for (int r = 0; r < repeats && !token.IsCancellationRequested; r++)
-            await RunStepsAsync(steps, token, 0);
+            await RunStepsAsync(steps, token, 0, context);
     }
 
-    private async Task RunStepsAsync(List<MacroStep> steps, CancellationToken token, int depth)
+    private async Task RunStepsAsync(List<MacroStep> steps, CancellationToken token,
+        int depth, MacroContext context)
     {
         if (depth > 12) return;
 
@@ -203,24 +214,52 @@ public sealed class ActionExecutor : IDisposable
             {
                 case "repeat":
                     for (int i = 0; i < step.Number; i++)
-                        await RunStepsAsync(step.Body ?? new List<MacroStep>(), token, depth + 1);
+                        await RunStepsAsync(step.Body ?? new List<MacroStep>(), token,
+                            depth + 1, context);
                     break;
+
+                case "while":
+                {
+                    int iterations = 0;
+                    while (true)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        var window = ConditionWindow(step.Text ?? "");
+
+                        if (!MacroExpression.TryEvaluate(step.Text ?? "", window,
+                                context.Variables, out var ok, out var error))
+                        {
+                            ReportError("Условие while: " + error);
+                            break;
+                        }
+
+                        if (!ok) break;
+
+                        await RunStepsAsync(step.Body ?? new List<MacroStep>(), token,
+                            depth + 1, context);
+
+                        if (++iterations > 10_000)
+                        {
+                            ReportError("while: превышен лимит 10 000 итераций.");
+                            break;
+                        }
+                    }
+                    break;
+                }
 
                 case "if":
                 {
-                    bool result = false;
-                    var window = _windowProvider?.Invoke();
-                    if (!string.IsNullOrWhiteSpace(step.Text) && window is not null)
+                    var window = ConditionWindow(step.Text ?? "");
+                    if (!MacroExpression.TryEvaluate(step.Text ?? "", window,
+                            context.Variables, out var ok, out var error))
                     {
-                        if (ExpressionEvaluator.TryEvaluate(step.Text, window, out var ok, out var error))
-                            result = ok;
-                        else
-                            ReportError("Условие: " + error);
+                        ReportError("Условие: " + error);
+                        break;
                     }
 
-                    await RunStepsAsync(result
+                    await RunStepsAsync(ok
                         ? step.Body ?? new List<MacroStep>()
-                        : step.ElseBody ?? new List<MacroStep>(), token, depth + 1);
+                        : step.ElseBody ?? new List<MacroStep>(), token, depth + 1, context);
                     break;
                 }
 
@@ -229,7 +268,7 @@ public sealed class ActionExecutor : IDisposable
                     break;
 
                 default:
-                    await RunStepAsync(step, token);
+                    await RunStepAsync(step, token, context);
                     if (step.Kind != "delay")
                         await Task.Delay(20, token);
                     break;
@@ -237,7 +276,8 @@ public sealed class ActionExecutor : IDisposable
         }
     }
 
-    private async Task RunStepAsync(MacroStep step, CancellationToken token)
+    private async Task RunStepAsync(MacroStep step, CancellationToken token,
+        MacroContext context)
     {
         switch (step.Kind)
         {
@@ -245,8 +285,52 @@ public sealed class ActionExecutor : IDisposable
                 await Task.Delay(step.Number, token);
                 break;
 
+            case "set":
+            {
+                var name = step.Text ?? "";
+                var expression = step.Text2 ?? "";
+                var window = ConditionWindow(expression);
+
+                if (MacroExpression.TryEvaluateValue(expression, window,
+                        context.Variables, out var value, out var expressionError))
+                {
+                    if (value.Kind == MacroValueKind.String)
+                        value = MacroValue.FromString(ExpandText(value.AsString(), context));
+                    context.Variables.Set(name, value);
+                }
+                else if (LooksLikeExpression(expression))
+                {
+                    ReportError("set " + name + ": " + expressionError);
+                }
+                else
+                {
+                    context.Variables.Set(name,
+                        MacroValue.FromString(ExpandText(expression, context)));
+                }
+                break;
+            }
+
+            case "inc":
+            case "dec":
+            {
+                var name = step.Text ?? "";
+                double current = 0;
+                if (context.Variables.TryGet(name, out var existing) &&
+                    !existing.TryGetNumber(out current))
+                {
+                    ReportError($"{step.Kind} {name}: переменная не является числом.");
+                    break;
+                }
+
+                var delta = step.Number;
+                var next = step.Kind == "inc" ? current + delta : current - delta;
+                context.Variables.Set(name, MacroValue.FromNumber(next));
+                break;
+            }
+
             case "text":
-                await TypeTextAsync(ExpandText(step.Text ?? ""), token);
+                await TypeTextAsync(ExpandText(step.Text ?? "", context),
+                    ResolveTypingDelay(step, context), token);
                 break;
 
             case "wheel":
@@ -261,28 +345,36 @@ public sealed class ActionExecutor : IDisposable
             case "browser":
             {
                 var window = _windowProvider?.Invoke();
+                var typingDelay = ResolveTypingDelay(step, context);
                 string error = "";
                 bool ok = step.Key switch
                 {
-                    "page" => BrowserMacro.TryChangePage(window, step.Number, out error),
-                    "page-set" => BrowserMacro.TrySetPage(window, step.Number, out error),
-                    "goto" => BrowserMacro.TryGoTo(window, ExpandText(step.Text ?? ""), out error),
+                    "page" => BrowserMacro.TryChangePage(window, step.Number,
+                        typingDelay, out error),
+                    "page-set" => BrowserMacro.TrySetPage(window, step.Number,
+                        typingDelay, out error),
+                    "goto" => BrowserMacro.TryGoTo(window,
+                        ExpandText(step.Text ?? "", context), typingDelay, out error),
                     "set_param" => BrowserMacro.TrySetQuery(window,
-                        ExpandText(step.Text ?? ""), ExpandText(step.Text2 ?? ""), out error),
+                        ExpandText(step.Text ?? "", context),
+                        ExpandText(step.Text2 ?? "", context), typingDelay, out error),
                     "change_param" => BrowserMacro.TryChangeQuery(window,
-                        ExpandText(step.Text ?? ""), step.Number, out error),
+                        ExpandText(step.Text ?? "", context), step.Number,
+                        typingDelay, out error),
                     "set_param_url" => BrowserMacro.TrySetPath(window,
-                        step.Number, ExpandText(step.Text ?? ""), out error),
+                        step.Number, ExpandText(step.Text ?? "", context),
+                        typingDelay, out error),
                     "change_param_url" => BrowserMacro.TryChangePath(window,
-                        step.Number, step.Modifiers1, out error),
+                        step.Number, step.Modifiers1, typingDelay, out error),
                     "tab-new" => BrowserMacro.TryNewTab(window,
-                        ExpandText(step.Text ?? ""), step.Number, step.Modifiers1 != 0, out error),
+                        ExpandText(step.Text ?? "", context), step.Number,
+                        step.Modifiers1 != 0, typingDelay, out error),
                     "tab-close" => BrowserMacro.TryCloseTab(window,
                         step.Number, out error),
                     "tab-select" => BrowserMacro.TrySelectTab(window,
                         step.Number, out error),
                     "open-new-tab" => BrowserMacro.TryOpenInNewTab(window,
-                        ExpandText(step.Text ?? ""), out error),
+                        ExpandText(step.Text ?? "", context), typingDelay, out error),
                     "back" => BrowserMacro.TryGoBack(window, out error),
                     "forward" => BrowserMacro.TryGoForward(window, out error),
                     "stop" => BrowserMacro.TryStop(window, out error),
@@ -294,9 +386,9 @@ public sealed class ActionExecutor : IDisposable
                     "zoom-out" => BrowserMacro.TryZoom(window, -1, out error),
                     "zoom-reset" => BrowserMacro.TryZoom(window, 0, out error),
                     "find" => BrowserMacro.TryFind(window,
-                        ExpandText(step.Text ?? ""), out error),
+                        ExpandText(step.Text ?? "", context), typingDelay, out error),
                     "search" => BrowserMacro.TrySearch(window,
-                        ExpandText(step.Text ?? ""), out error),
+                        ExpandText(step.Text ?? "", context), typingDelay, out error),
                     "copy-url" => BrowserMacro.TryCopyUrl(window, out error),
                     "scroll-top" => BrowserMacro.TryScroll(window, "top", out error),
                     "scroll-bottom" => BrowserMacro.TryScroll(window, "bottom", out error),
@@ -314,7 +406,7 @@ public sealed class ActionExecutor : IDisposable
 
             case "clipboard-set":
                 ReportIfFailed(SystemMacro.TrySetClipboard(
-                    ExpandText(step.Text ?? ""), out var clipError), clipError);
+                    ExpandText(step.Text ?? "", context), out var clipError), clipError);
                 break;
 
             case "clipboard-paste":
@@ -323,18 +415,21 @@ public sealed class ActionExecutor : IDisposable
 
             case "run":
                 ReportIfFailed(SystemMacro.TryRun(
-                    ExpandText(step.Text ?? ""), ExpandText(step.Text2 ?? ""), out var runError), runError);
+                    ExpandText(step.Text ?? "", context),
+                    ExpandText(step.Text2 ?? "", context), out var runError), runError);
                 break;
 
             case "open":
-                ReportIfFailed(SystemMacro.TryOpen(ExpandText(step.Text ?? ""), out var openError), openError);
+                ReportIfFailed(SystemMacro.TryOpen(
+                    ExpandText(step.Text ?? "", context), out var openError), openError);
                 break;
 
             case "window":
             {
                 string error;
                 bool ok = step.Key == "activate"
-                    ? SystemMacro.TryActivateWindow(ExpandText(step.Text ?? ""), out error)
+                    ? SystemMacro.TryActivateWindow(
+                        ExpandText(step.Text ?? "", context), out error)
                     : SystemMacro.TryWindowState(step.Key ?? "", out error);
                 ReportIfFailed(ok, error);
                 break;
@@ -373,9 +468,12 @@ public sealed class ActionExecutor : IDisposable
                 break;
 
             case "profile-set":
-                if (!string.IsNullOrWhiteSpace(step.Text))
-                    ProfileSwitchRequested?.Invoke(step.Text);
+            {
+                var id = ExpandText(step.Text ?? "", context);
+                if (!string.IsNullOrWhiteSpace(id))
+                    ProfileSwitchRequested?.Invoke(id);
                 break;
+            }
 
             case "layer-next":
                 LayerCycleRequested?.Invoke(1);
@@ -419,13 +517,32 @@ public sealed class ActionExecutor : IDisposable
         }
     }
 
-    private string ExpandText(string text)
+    private WindowInfo? ConditionWindow(string condition) =>
+        Regex.IsMatch(condition, @"\b(url|browser\.url|title|process|app|class)\b",
+            RegexOptions.IgnoreCase)
+            ? FreshWindow()
+            : _windowProvider?.Invoke();
+
+    private WindowInfo? FreshWindow()
+    {
+        var window = _windowProvider?.Invoke();
+        if (window is not null && BrowserUrlReader.IsBrowser(window.ProcessName))
+        {
+            var url = BrowserUrlReader.TryGetUrl(window, force: true);
+            if (!string.IsNullOrWhiteSpace(url)) window = window with { Url = url };
+        }
+        return window;
+    }
+
+    private string ExpandText(string text, MacroContext context)
     {
         if (string.IsNullOrEmpty(text) || !text.Contains('{')) return text;
 
         var window = _windowProvider?.Invoke();
         var url = window?.Url ?? "";
-        if (window is not null && BrowserUrlReader.IsBrowser(window.ProcessName))
+        bool needsUrl = Regex.IsMatch(text, @"\{(url|param:)", RegexOptions.IgnoreCase);
+        if (needsUrl && window is not null &&
+            BrowserUrlReader.IsBrowser(window.ProcessName))
         {
             url = BrowserUrlReader.TryGetUrl(window, force: true) ?? url;
         }
@@ -451,8 +568,27 @@ public sealed class ActionExecutor : IDisposable
                     ? value
                     : "";
             }
+            if (context.Variables.TryGet(key, out var variable))
+                return variable.AsString();
             return match.Value;
         });
+    }
+
+    private static int ResolveTypingDelay(MacroStep step, MacroContext context)
+    {
+        var delay = step.TypingDelayMs ?? context.DefaultTypingDelayMs;
+        return Math.Clamp(delay, -1, 5000);
+    }
+
+    private static bool LooksLikeExpression(string text)
+    {
+        if (text.Contains("&&") || text.Contains("||") ||
+            text.Contains("==") || text.Contains("!=") ||
+            text.Contains("<=") || text.Contains(">=") || text.Contains("~="))
+            return true;
+        if (text.TrimStart().StartsWith('!')) return true;
+        if (Regex.IsMatch(text, @"\s[+\-*/%<>]\s")) return true;
+        return Regex.IsMatch(text, @"[0-9)]\s*[+\-*/%]\s*[0-9(]");
     }
 
     private void ReportIfFailed(bool ok, string error)
@@ -491,14 +627,21 @@ public sealed class ActionExecutor : IDisposable
         }
     }
 
-    private static async Task TypeTextAsync(string text, CancellationToken token)
+    private static async Task TypeTextAsync(string text, int delayMs, CancellationToken token)
     {
+        if (delayMs < 0)
+        {
+            token.ThrowIfCancellationRequested();
+            InputSender.SendUnicodeText(text);
+            return;
+        }
+
         foreach (var ch in text)
         {
             token.ThrowIfCancellationRequested();
             InputSender.SendUnicode(ch, true);
             InputSender.SendUnicode(ch, false);
-            await Task.Delay(3, token);
+            if (delayMs > 0) await Task.Delay(delayMs, token);
         }
     }
 
@@ -518,7 +661,9 @@ public sealed class ActionExecutor : IDisposable
             {
                 InputSender.ReleaseHeldModifiers();
                 await Task.Delay(5);
-                await TypeTextAsync(action.Value, CancellationToken.None);
+                var delay = _defaultTypingDelay?.Invoke() ?? 3;
+                await TypeTextAsync(action.Value, Math.Clamp(delay, -1, 5000),
+                    CancellationToken.None);
                 break;
             }
             case ActionKind.Media:

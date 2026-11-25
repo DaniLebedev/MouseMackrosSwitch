@@ -416,6 +416,76 @@ Check("система: подстановки", systemMacro[22].Kind == "text" &
 var fileAction = new ActionSpec { Kind = ActionKind.Macro, Script = "press A", ScriptPath = "x.macro" };
 Check("макрос: путь к файлу клонируется", fileAction.Clone().ScriptPath == "x.macro");
 
+var textSpeed = MacroScript.Parse("text \"hello\" 100");
+Check("текст: скорость 100", textSpeed.Count == 1 && textSpeed[0].Text == "hello" &&
+    textSpeed[0].TypingDelayMs == 100);
+var textInstant = MacroScript.Parse("text \"hello\" -1");
+Check("текст: мгновенно", textInstant[0].TypingDelayMs == -1);
+var textDefault = MacroScript.Parse("text \"hello\"");
+Check("текст: скорость по умолчанию", textDefault[0].TypingDelayMs is null &&
+    textDefault[0].Text == "hello");
+var textNumeric = MacroScript.Parse("text 123");
+Check("текст: число — это текст", textNumeric[0].Text == "123" &&
+    textNumeric[0].TypingDelayMs is null);
+var textQuotedNumeric = MacroScript.Parse("text \"hello 100\"");
+Check("текст: число в кавычках", textQuotedNumeric[0].Text == "hello 100" &&
+    textQuotedNumeric[0].TypingDelayMs is null);
+var browserSpeed = MacroScript.Parse("browser find \"hello\" 100");
+Check("browser: скорость find", browserSpeed[0].Key == "find" &&
+    browserSpeed[0].TypingDelayMs == 100);
+var browserSpeedWord = MacroScript.Parse("browser find \"speed\" 100");
+Check("browser: слово speed как текст", browserSpeedWord[0].Key == "find" &&
+    browserSpeedWord[0].Text == "speed" && browserSpeedWord[0].TypingDelayMs == 100);
+var browserSpeedKeyword = MacroScript.Parse("browser page +1 speed 50");
+Check("browser: скорость page", browserSpeedKeyword[0].Key == "page" &&
+    browserSpeedKeyword[0].TypingDelayMs == 50);
+var browserParamSpeed = MacroScript.Parse("browser set_param \"page\" \"287\" speed 25");
+Check("browser: скорость set_param", browserParamSpeed[0].TypingDelayMs == 25);
+
+var variables = MacroScript.Parse("""
+    set counter = 5
+    inc counter 2
+    while counter < 10 {
+        set counter = counter + 1
+    }
+    """);
+Check("переменные: set", variables[0].Kind == "set" &&
+    variables[0].Text == "counter" && variables[0].Text2 == "5");
+Check("переменные: inc", variables[1].Kind == "inc" &&
+    variables[1].Text == "counter" && variables[1].Number == 2);
+Check("переменные: while", variables[2].Kind == "while" &&
+    variables[2].Text == "counter < 10" && variables[2].Body?.Count == 1);
+var whileBody = variables[2].Body!;
+Check("переменные: тело while", whileBody[0].Kind == "set" &&
+    whileBody[0].Text2 == "counter + 1");
+var repeatWhile = MacroScript.Parse("repeat while counter < 5 {\n inc counter\n}");
+Check("переменные: repeat while", repeatWhile.Count == 1 &&
+    repeatWhile[0].Kind == "while" && repeatWhile[0].Text == "counter < 5" &&
+    repeatWhile[0].Body?.Count == 1);
+
+var mv = new MacroVariables();
+Check("выражение: арифметика",
+    MacroExpression.TryEvaluateValue("1 + 2 * 3", null, mv, out var arithmetic, out _) &&
+    arithmetic.AsNumber() == 7);
+mv.Set("counter", MacroValue.FromNumber(5));
+Check("выражение: переменная и сравнение",
+    MacroExpression.TryEvaluate("counter < 10", null, mv, out var compare, out _) && compare);
+Check("выражение: арифметика с переменной",
+    MacroExpression.TryEvaluate("counter + 1 == 6", null, mv, out var compare2, out _) && compare2);
+mv.Set("name", MacroValue.FromString("nexus"));
+Check("выражение: строка",
+    MacroExpression.TryEvaluate("name == \"nexus\"", null, mv, out var stringEqual, out _) &&
+    stringEqual);
+Check("выражение: конкатенация",
+    MacroExpression.TryEvaluateValue("name + \"-page\"", null, mv, out var joined, out _) &&
+    joined.AsString() == "nexus-page");
+Check("выражение: поле URL",
+    MacroExpression.TryEvaluate("browser.url contains \"nexus\"",
+        WinUrl("firefox", "Nexus", "https://www.nexusmods.com/mods"), mv, out var urlCond, out _) &&
+    urlCond);
+Check("выражение: неизвестная переменная",
+    !MacroExpression.TryEvaluate("missing == 1", null, mv, out _, out _));
+
 var blocks = MacroScript.Parse("""
     repeat 3 {
         press A
@@ -591,6 +661,8 @@ stored.Profiles[1].ApplicationPath = @"C:\Apps\browser.exe";
 stored.Profiles[1].Applications.Add(@"C:\Apps\browser.exe");
 stored.Profiles[1].Applications.Add(@"C:\Apps\second.exe");
 stored.Profiles[1].VendorProfilePath = @"C:\psf\MouseMackros.psf";
+stored.TypingDelayMs = 7;
+stored.Profiles[1].TypingDelayMs = -1;
 ProfileStore.Save(stored);
 
 Check("storage: settings.json создан", File.Exists(Path.Combine(dataDir, "settings.json")));
@@ -608,6 +680,10 @@ Check("storage: процессы из приложений",
     reloaded.Profiles.Any(p => p.Match.Processes.Contains("second")));
 Check("storage: путь .psf сохранён",
     reloaded.Profiles.Any(p => p.VendorProfilePath == @"C:\psf\MouseMackros.psf"));
+Check("storage: скорость набора сохранена", reloaded.TypingDelayMs == 7,
+    reloaded.TypingDelayMs.ToString());
+Check("storage: скорость профиля сохранена",
+    reloaded.Profiles.Any(p => p.TypingDelayMs == -1));
 Check("storage: fallback восстановлен", reloaded.FallbackProfile.IsFallback);
 
 var extraConfig = new AppConfig

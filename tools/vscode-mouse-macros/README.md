@@ -26,7 +26,25 @@ powershell -ExecutionPolicy Bypass -File tools\install-vscode-extension.ps1
   - неизвестные команды и подкоманды;
   - незакрытые кавычки и блоки `{ ... }`;
   - отсутствующие аргументы;
-  - нечисловые значения там, где нужно число.
+  - нечисловые значения там, где нужно число;
+  - ошибки в `set`, `inc`, `dec` и условиях `while`.
+
+Поддерживаются переменные и блоки:
+
+```text
+set counter = 0
+while counter < 10 {
+    inc counter
+    text "шаг {counter}" 100
+}
+
+if browser.url contains "nexusmods.com" {
+    browser page +1 speed 100
+}
+```
+
+Скорость набора задаётся последним числом (`text "hello" 100`, `-1` — мгновенно)
+или опцией `speed N` у браузерных команд.
 
 ## Формат файла
 

@@ -215,6 +215,14 @@ public partial class MainWindow : Window
                 ? "цвет колеса"
                 : _selected.IndicatorColor!.ToUpperInvariant();
 
+            var typingDelay = _selected.TypingDelayMs ?? _app.Config.TypingDelayMs;
+            TypingSpeedText.Text = typingDelay < 0
+                ? "набор: мгновенно"
+                : $"набор: {typingDelay} мс";
+            TypingSpeedText.ToolTip = _selected.TypingDelayMs is null
+                ? "Как в настройках"
+                : "Переопределено для профиля";
+
             var layerCount = _app.Config.ManualLayersOf(_selected).Count;
             LayersChip.Visibility = layerCount > 0 ? Visibility.Visible : Visibility.Collapsed;
             LayersChipText.Text = layerCount > 0 ? $"слоёв: {layerCount}" : "";
@@ -705,6 +713,36 @@ public partial class MainWindow : Window
         LastInputText.Text = "Цвет колеса обновлён";
     }
 
+    private void TypingSpeed_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected is null) return;
+
+        var current = _selected.TypingDelayMs?.ToString() ?? "";
+        var result = AnnotationDialog.Edit(this, "Скорость набора",
+            "Задержка между символами в мс. -1 — мгновенно, пусто — как в настройках.",
+            current,
+            "Скорость влияет на text, browser find/search/goto и ввод URL.");
+        if (result is null) return;
+
+        if (result.Length == 0)
+        {
+            _selected.TypingDelayMs = null;
+        }
+        else if (int.TryParse(result, out var delay) && delay >= -1 && delay <= 5000)
+        {
+            _selected.TypingDelayMs = delay;
+        }
+        else
+        {
+            AppDialog.ShowError("Укажите число от -1 до 5000 или оставьте поле пустым.",
+                "Скорость набора");
+            return;
+        }
+
+        Commit();
+        LastInputText.Text = "Скорость набора обновлена";
+    }
+
     private void MakeDefault_Click(object sender, RoutedEventArgs e)
     {
         if (_selected is null) return;
@@ -1025,6 +1063,7 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() != true || !dialog.Changed) return;
 
         _app.Engine.Invalidate();
+        RefreshContent();
         UpdateStatus();
         ScheduleSave();
     }

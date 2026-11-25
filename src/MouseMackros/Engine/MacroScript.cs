@@ -13,7 +13,8 @@ public sealed record MacroStep(
     string? Text,
     string? Text2 = null,
     List<MacroStep>? Body = null,
-    List<MacroStep>? ElseBody = null);
+    List<MacroStep>? ElseBody = null,
+    int? TypingDelayMs = null);
 
 /// <summary>
 /// Tiny macro language, one command per line. Blocks use braces:
@@ -55,6 +56,17 @@ public static class MacroScript
             {
                 var header = line[..^1].Trim();
                 index++;
+
+                if (header.StartsWith("repeat while ", StringComparison.OrdinalIgnoreCase) ||
+                    header.StartsWith("while ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var condition = header.StartsWith("repeat while ", StringComparison.OrdinalIgnoreCase)
+                        ? header[13..].Trim()
+                        : header[6..].Trim();
+                    var body = ParseBlock(lines, ref index, depth + 1);
+                    steps.Add(new MacroStep("while", null, 0, 0, 0, condition, null, body));
+                    continue;
+                }
 
                 if (header.StartsWith("repeat ", StringComparison.OrdinalIgnoreCase) ||
                     header.Equals("repeat", StringComparison.OrdinalIgnoreCase))
@@ -118,7 +130,7 @@ public static class MacroScript
 
             case "text":
             case "type":
-                return new MacroStep("text", null, 0, 0, 0, Unquote(argument));
+                return ParseTextStep(argument);
 
             case "wheel":
             {
@@ -147,8 +159,32 @@ public static class MacroScript
                 return new MacroStep("move", null, dx, dy, 0, null);
             }
 
+            case "set":
+            case "let":
+            {
+                var match = Regex.Match(argument, @"^([^\s=]+)\s*(?:=\s*)?(.*)$");
+                if (!match.Success || !IsVariableName(match.Groups[1].Value))
+                    return null;
+                return new MacroStep("set", null, 0, 0, 0,
+                    match.Groups[1].Value, match.Groups[2].Value.Trim());
+            }
+
+            case "inc":
+            case "dec":
+            {
+                var bits = SplitArgs(argument);
+                if (bits.Count == 0 || !IsVariableName(bits[0])) return null;
+                int step = bits.Count > 1 ? ParseSigned(bits[1], 1) : 1;
+                return new MacroStep(command, null, 0, 0, Math.Clamp(step, -1_000_000, 1_000_000),
+                    bits[0]);
+            }
+
             case "browser":
-                return ParseBrowser(SplitArgs(argument));
+            {
+                var args = SplitArgs(argument);
+                args = ExtractSpeed(args, 2, out var typingDelay);
+                return ParseBrowser(args, typingDelay);
+            }
 
             case "clipboard":
             {
@@ -274,50 +310,65 @@ public static class MacroScript
         }
     }
 
-    private static MacroStep? ParseBrowser(List<string> args)
+    private static MacroStep? ParseBrowser(List<string> args, int? typingDelayMs)
     {
         var op = args.Count > 0 ? args[0].ToLowerInvariant() : "";
+        var speed = typingDelayMs;
+
         switch (op)
         {
             case "goto" when args.Count > 1 && args[1].Length > 0:
-                return new MacroStep("browser", "goto", 0, 0, 0, args[1]);
+                speed ??= TakeTrailingSpeed(args, 3);
+                return new MacroStep("browser", "goto", 0, 0, 0, args[1],
+                    TypingDelayMs: speed);
 
             case "page" when args.Count > 1:
             {
+                speed ??= TakeTrailingSpeed(args, 3);
                 var arg = args[1].ToLowerInvariant();
                 if (arg is "+1" or "next" or "вперёд" or "вперед")
-                    return new MacroStep("browser", "page", 0, 0, 1, null);
+                    return new MacroStep("browser", "page", 0, 0, 1, null,
+                        TypingDelayMs: speed);
                 if (arg is "-1" or "prev" or "previous" or "назад")
-                    return new MacroStep("browser", "page", 0, 0, -1, null);
+                    return new MacroStep("browser", "page", 0, 0, -1, null,
+                        TypingDelayMs: speed);
                 if (int.TryParse(arg, out var page))
                     return new MacroStep("browser", "page-set", 0, 0,
-                        Math.Clamp(page, 0, 1_000_000), null);
+                        Math.Clamp(page, 0, 1_000_000), null, TypingDelayMs: speed);
                 return null;
             }
 
             case "set_param" when args.Count >= 3:
-                return new MacroStep("browser", "set_param", 0, 0, 0, args[1], args[2]);
+                speed ??= TakeTrailingSpeed(args, 4);
+                return new MacroStep("browser", "set_param", 0, 0, 0, args[1], args[2],
+                    TypingDelayMs: speed);
 
             case "change_param" when args.Count >= 3:
             {
+                speed ??= TakeTrailingSpeed(args, 4);
                 int delta = ParseSigned(args[2], 0);
                 return delta == 0 ? null : new MacroStep("browser", "change_param", 0, 0,
-                    Math.Clamp(delta, -1_000_000, 1_000_000), args[1]);
+                    Math.Clamp(delta, -1_000_000, 1_000_000), args[1],
+                    TypingDelayMs: speed);
             }
 
             case "set_param_url" when args.Count >= 3:
+            {
+                speed ??= TakeTrailingSpeed(args, 4);
                 return int.TryParse(args[1], out var setIndex)
                     ? new MacroStep("browser", "set_param_url", 0, 0,
-                        Math.Clamp(setIndex, 1, 128), args[2])
+                        Math.Clamp(setIndex, 1, 128), args[2], TypingDelayMs: speed)
                     : null;
+            }
 
             case "change_param_url" when args.Count >= 3:
             {
+                speed ??= TakeTrailingSpeed(args, 4);
                 if (!int.TryParse(args[1], out var changeIndex)) return null;
                 int delta = ParseSigned(args[2], 0);
                 return delta == 0 ? null : new MacroStep("browser", "change_param_url",
                     Math.Clamp(delta, -1_000_000, 1_000_000), 0,
-                    Math.Clamp(changeIndex, 1, 128), null);
+                    Math.Clamp(changeIndex, 1, 128), null, TypingDelayMs: speed);
             }
 
             case "tab" when args.Count > 1:
@@ -325,6 +376,7 @@ public static class MacroScript
                 var sub = args[1].ToLowerInvariant();
                 if (sub == "new")
                 {
+                    speed ??= TakeTrailingSpeed(args, 5);
                     string? tabUrl = null;
                     int position = 0;
                     bool background = false;
@@ -346,7 +398,7 @@ public static class MacroScript
                         }
                     }
                     return new MacroStep("browser", "tab-new",
-                        background ? 1 : 0, 0, position, tabUrl);
+                        background ? 1 : 0, 0, position, tabUrl, TypingDelayMs: speed);
                 }
 
                 if (sub == "close")
@@ -373,8 +425,9 @@ public static class MacroScript
                     : null;
 
             case "open_in_new_tab" or "open-new-tab":
+                speed ??= TakeTrailingSpeed(args, 3);
                 return new MacroStep("browser", "open-new-tab", 0, 0, 0,
-                    args.Count > 1 ? args[1] : null);
+                    args.Count > 1 ? args[1] : null, TypingDelayMs: speed);
 
             case "back" or "назад":
                 return new MacroStep("browser", "back", 0, 0, 0, null);
@@ -409,10 +462,14 @@ public static class MacroScript
             }
 
             case "find" when args.Count > 1:
-                return new MacroStep("browser", "find", 0, 0, 0, Rest(args, 1));
+                speed ??= TakeTrailingSpeed(args, 3);
+                return new MacroStep("browser", "find", 0, 0, 0, Rest(args, 1),
+                    TypingDelayMs: speed);
 
             case "search" when args.Count > 1:
-                return new MacroStep("browser", "search", 0, 0, 0, Rest(args, 1));
+                speed ??= TakeTrailingSpeed(args, 3);
+                return new MacroStep("browser", "search", 0, 0, 0, Rest(args, 1),
+                    TypingDelayMs: speed);
 
             case "copy_url" or "copy-url":
                 return new MacroStep("browser", "copy-url", 0, 0, 0, null);
@@ -427,6 +484,60 @@ public static class MacroScript
             default:
                 return null;
         }
+    }
+
+    private static MacroStep ParseTextStep(string argument)
+    {
+        var args = SplitArgs(argument);
+        int? speed = null;
+
+        if (args.Count >= 2 && int.TryParse(args[^1], out var trailing))
+        {
+            speed = trailing;
+            args.RemoveAt(args.Count - 1);
+        }
+
+        var text = args.Count == 0 ? "" : string.Join(" ", args);
+        return new MacroStep("text", null, 0, 0, 0, text, TypingDelayMs: speed);
+    }
+
+    private static List<string> ExtractSpeed(List<string> args, int minimumIndex, out int? speed)
+    {
+        speed = null;
+        var result = new List<string>();
+
+        for (int i = 0; i < args.Count; i++)
+        {
+            if (i >= minimumIndex && i + 1 < args.Count &&
+                (args[i].Equals("speed", StringComparison.OrdinalIgnoreCase) ||
+                 args[i].Equals("скорость", StringComparison.OrdinalIgnoreCase)) &&
+                int.TryParse(args[i + 1], out var value))
+            {
+                speed = value;
+                i++;
+                continue;
+            }
+
+            result.Add(args[i]);
+        }
+
+        return result;
+    }
+
+    private static int? TakeTrailingSpeed(List<string> args, int minimumCount)
+    {
+        if (args.Count < minimumCount || !int.TryParse(args[^1], out var speed))
+            return null;
+
+        args.RemoveAt(args.Count - 1);
+        return speed;
+    }
+
+    private static bool IsVariableName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        if (!char.IsLetter(name[0]) && name[0] != '_') return false;
+        return name.All(ch => char.IsLetterOrDigit(ch) || ch == '_');
     }
 
     private static string Rest(List<string> args, int start) =>
@@ -497,7 +608,10 @@ public static class MacroScript
         "press Ctrl+A — нажать сочетание\n" +
         "down Shift / up Shift — зажать / отпустить\n" +
         "delay 100 — пауза, мс\n" +
-        "text Привет — напечатать текст\n" +
+        "text \"Привет\" — напечатать текст\n" +
+        "text \"Привет\" 100 — задержка 100 мс между символами\n" +
+        "text \"Привет\" -1 — напечатать мгновенно\n" +
+        "speed 100 — опция скорости для browser-команд\n" +
         "wheel down 2 — прокрутить колесо\n" +
         "move 10 -5 — сдвинуть курсор (x y)\n" +
         "cursor right 10 — сдвинуть курсор\n" +
@@ -517,8 +631,8 @@ public static class MacroScript
         "browser select 3 — перейти на вкладку\n" +
         "browser open_in_new_tab [\"url\"] — открыть в новой вкладке\n" +
         "browser zoom +1 / -1 / reset — масштаб\n" +
-        "browser find \"текст\" — поиск на странице\n" +
-        "browser search \"запрос\" — поиск в браузере\n" +
+        "browser find \"текст\" 100 — поиск на странице\n" +
+        "browser search \"запрос\" speed 100 — поиск в браузере\n" +
         "browser copy_url — скопировать адрес\n" +
         "browser scroll top / bottom — в начало / конец\n\n" +
         "СИСТЕМА\n" +
@@ -532,8 +646,18 @@ public static class MacroScript
         "screenshot — ножницы Windows, lock — блокировка, sleep — сон\n" +
         "profile next / prev / set games — профиль\n" +
         "layer next / prev / set 2 — ручной слой\n\n" +
+        "ПЕРЕМЕННЫЕ И ВЫРАЖЕНИЯ\n" +
+        "set counter = 5 — задать переменную\n" +
+        "let name = \"nexus\" — то же самое\n" +
+        "inc counter / dec counter 2 — увеличить / уменьшить\n" +
+        "text {counter} / browser goto \"https://x/{page}\" — подстановка\n" +
+        "counter < 10, counter + 1 == 6, name == \"nexus\" — выражения\n" +
+        "url, title, process, class — поля активного окна\n" +
+        "не называйте переменные url/title/process/class/date/time/clipboard\n\n" +
         "БЛОКИ\n" +
-        "repeat 5 { ... } — повторить\n" +
+        "repeat 5 { ... } — повторить N раз\n" +
+        "while counter < 10 { ... } — повторять, пока условие верно\n" +
+        "repeat while counter < 10 { ... } — то же самое\n" +
         "if browser.url contains \"nexus\" { ... } else { ... } — условие\n\n" +
         "VS CODE\n" +
         "«Открыть в VS Code» сохраняет .macro и открывает его.\n" +

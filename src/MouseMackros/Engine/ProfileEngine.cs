@@ -42,7 +42,11 @@ public sealed class ProfileEngine : IDisposable
     {
         Config = config;
         ActiveProfile = config.FallbackProfile;
-        _executor = new ActionExecutor(() => CurrentWindow);
+        _executor = new ActionExecutor(
+            () => CurrentWindow,
+            () => ActiveLayer?.TypingDelayMs ??
+                  ActiveProfile.TypingDelayMs ??
+                  Config.TypingDelayMs);
 
         _keyboard = new KeyboardHook();
         _keyboard.KeyEvent += OnKey;
