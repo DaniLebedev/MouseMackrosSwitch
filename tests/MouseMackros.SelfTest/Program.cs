@@ -413,6 +413,9 @@ var templateText = systemMacro[22].Text ?? "";
 Check("система: подстановки", systemMacro[22].Kind == "text" &&
     templateText.Contains("{clipboard}") && templateText.Contains("{date}"));
 
+var fileAction = new ActionSpec { Kind = ActionKind.Macro, Script = "press A", ScriptPath = "x.macro" };
+Check("макрос: путь к файлу клонируется", fileAction.Clone().ScriptPath == "x.macro");
+
 var blocks = MacroScript.Parse("""
     repeat 3 {
         press A
