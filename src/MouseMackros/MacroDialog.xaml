@@ -66,7 +66,7 @@
                             Margin="8,0,0,0" Click="Help_Click" />
                     <TextBlock x:Name="FileLabel" Style="{StaticResource MutedText}" FontSize="11"
                                VerticalAlignment="Center" Margin="12,0,0,0"
-                               TextTrimming="CharacterEllipsis" MaxWidth="240" />
+                               TextTrimming="CharacterEllipsis" MaxWidth="160" />
                 </StackPanel>
 
                 <TextBox Grid.Row="2" x:Name="ScriptBox" AcceptsReturn="True" TextWrapping="NoWrap"

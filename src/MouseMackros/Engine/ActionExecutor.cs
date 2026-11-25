@@ -270,19 +270,19 @@ public sealed class ActionExecutor : IDisposable
                     "set_param" => BrowserMacro.TrySetQuery(window,
                         ExpandText(step.Text ?? ""), ExpandText(step.Text2 ?? ""), out error),
                     "change_param" => BrowserMacro.TryChangeQuery(window,
-                        step.Text ?? "", step.Number, out error),
+                        ExpandText(step.Text ?? ""), step.Number, out error),
                     "set_param_url" => BrowserMacro.TrySetPath(window,
                         step.Number, ExpandText(step.Text ?? ""), out error),
                     "change_param_url" => BrowserMacro.TryChangePath(window,
                         step.Number, step.Modifiers1, out error),
                     "tab-new" => BrowserMacro.TryNewTab(window,
-                        step.Text, step.Number, step.Modifiers1 != 0, out error),
+                        ExpandText(step.Text ?? ""), step.Number, step.Modifiers1 != 0, out error),
                     "tab-close" => BrowserMacro.TryCloseTab(window,
                         step.Number, out error),
                     "tab-select" => BrowserMacro.TrySelectTab(window,
                         step.Number, out error),
                     "open-new-tab" => BrowserMacro.TryOpenInNewTab(window,
-                        step.Text, out error),
+                        ExpandText(step.Text ?? ""), out error),
                     "back" => BrowserMacro.TryGoBack(window, out error),
                     "forward" => BrowserMacro.TryGoForward(window, out error),
                     "stop" => BrowserMacro.TryStop(window, out error),
@@ -425,10 +425,9 @@ public sealed class ActionExecutor : IDisposable
 
         var window = _windowProvider?.Invoke();
         var url = window?.Url ?? "";
-        if (string.IsNullOrWhiteSpace(url) && window is not null &&
-            BrowserUrlReader.IsBrowser(window.ProcessName))
+        if (window is not null && BrowserUrlReader.IsBrowser(window.ProcessName))
         {
-            url = BrowserUrlReader.TryGetUrl(window) ?? "";
+            url = BrowserUrlReader.TryGetUrl(window, force: true) ?? url;
         }
 
         return Regex.Replace(text, @"\{([^{}]+)\}", match =>
@@ -446,10 +445,11 @@ public sealed class ActionExecutor : IDisposable
                 return window?.Title ?? "";
             if (key.Equals("process", StringComparison.OrdinalIgnoreCase))
                 return window?.ProcessName ?? "";
-            if (key.StartsWith("param:", StringComparison.OrdinalIgnoreCase) &&
-                SystemMacro.TryGetQueryParam(url, key[6..], out var value))
+            if (key.StartsWith("param:", StringComparison.OrdinalIgnoreCase))
             {
-                return value;
+                return SystemMacro.TryGetQueryParam(url, key[6..], out var value)
+                    ? value
+                    : "";
             }
             return match.Value;
         });

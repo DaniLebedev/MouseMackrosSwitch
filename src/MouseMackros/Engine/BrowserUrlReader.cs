@@ -26,17 +26,20 @@ public static class BrowserUrlReader
     public static bool IsBrowser(string processName) =>
         BrowserProcesses.Contains(processName, StringComparer.OrdinalIgnoreCase);
 
-    public static string? TryGetUrl(WindowInfo window)
+    public static string? TryGetUrl(WindowInfo window, bool force = false)
     {
         if (!IsBrowser(window.ProcessName) || window.Handle == IntPtr.Zero) return null;
 
-        lock (Gate)
+        if (!force)
         {
-            if (window.Handle == _lastHandle &&
-                string.Equals(window.Title, _lastTitle, StringComparison.Ordinal) &&
-                Environment.TickCount64 - _lastAt < CacheMs)
+            lock (Gate)
             {
-                return _lastUrl;
+                if (window.Handle == _lastHandle &&
+                    string.Equals(window.Title, _lastTitle, StringComparison.Ordinal) &&
+                    Environment.TickCount64 - _lastAt < CacheMs)
+                {
+                    return _lastUrl;
+                }
             }
         }
 

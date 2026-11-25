@@ -28,7 +28,9 @@
                         shell:WindowChrome.IsHitTestVisibleInChrome="True" />
             </Grid>
 
-            <StackPanel Grid.Row="1" Margin="20,16,20,8">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20,16,20,8">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -71,6 +73,7 @@
                            Style="{StaticResource MutedText}" FontSize="11" Margin="0,8,0,0"
                            TextWrapping="Wrap" />
             </StackPanel>
+            </ScrollViewer>
 
             <Border Grid.Row="2" Background="#16191F" BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="0,1,0,0" Padding="16,12">

@@ -502,7 +502,7 @@ public static class BrowserMacro
             return false;
         }
 
-        url = BrowserUrlReader.TryGetUrl(window) ?? window.Url ?? "";
+        url = BrowserUrlReader.TryGetUrl(window, force: true) ?? window.Url ?? "";
         if (string.IsNullOrWhiteSpace(url))
         {
             error = "Не удалось прочитать URL из адресной строки.";
