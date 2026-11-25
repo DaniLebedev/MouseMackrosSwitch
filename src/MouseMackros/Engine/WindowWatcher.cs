@@ -67,7 +67,8 @@ public sealed class WindowWatcher : IDisposable
                 _lastKey = key;
             }
 
-            ProfileStore.Log($"[foreground] {info.ProcessName} | {info.Title}");
+            var url = string.IsNullOrWhiteSpace(info.Url) ? "" : $" | {info.Url}";
+            ProfileStore.Log($"[foreground] {info.ProcessName} | {info.Title}{url}");
             _dispatcher.BeginInvoke(new Action(() => ForegroundChanged?.Invoke(this, info)));
         }
         catch

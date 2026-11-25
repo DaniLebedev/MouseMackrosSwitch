@@ -22,7 +22,7 @@
       "thorium",
       "arc"
     ],
-    "Expression": "browser.url contains \"www.nexusmods.com\"",
+    "Expression": "browser.url contains \"https://www.nexusmods.com\"",
     "Priority": 20
   },
   "Bindings": [
@@ -31,8 +31,9 @@
       "Trigger": "key:Ctrl+Shift+Alt+B",
       "Label": "tab left",
       "Action": {
-        "Kind": "Keys",
-        "Value": "Ctrl+Shift+Tab",
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "browser change_param \"page\" +1",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -68,8 +69,9 @@
       "Trigger": "key:Ctrl+Shift+Alt+E",
       "Label": "tab right",
       "Action": {
-        "Kind": "Keys",
-        "Value": "Ctrl+Tab",
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "browser change_param \"page\" -1",
         "Mode": "Once",
         "Repeat": 0
       },
@@ -105,7 +107,7 @@
   "ParentId": "browser",
   "IsManualLayer": false,
   "LayerOrder": 0,
-  "IndicatorColor": "#C3CAD8",
+  "IndicatorColor": "#FF0000",
   "LayerNextButton": 0,
   "LayerPrevButton": 0
 }

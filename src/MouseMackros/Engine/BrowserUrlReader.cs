@@ -53,7 +53,7 @@ public static class BrowserUrlReader
             url = null;
         }
 
-        url = Normalize(url);
+        url = NormalizeUrl(url);
 
         lock (Gate)
         {
@@ -139,12 +139,34 @@ public static class BrowserUrlReader
         return null;
     }
 
-    private static string? Normalize(string? value)
+    /// <summary>
+    /// Firefox shows the address without the scheme (for example
+    /// <c>www.nexusmods.com/mods?page=2</c>), so bare host names are
+    /// normalized to a real URL. This keeps <c>browser.url</c> conditions
+    /// working regardless of whether they include <c>https://</c>.
+    /// </summary>
+    public static string? NormalizeUrl(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
         var text = value.Trim();
         if (text.Length > 4096 || text.Contains('\n') || text.Contains('\r')) return null;
-        return LooksLikeUrl(text) ? text : null;
+        if (LooksLikeUrl(text)) return text;
+
+        var host = text.Split('/', '?', '#')[0];
+        var hostWithoutPort = host.StartsWith('[')
+            ? host[..(host.IndexOf(']') + 1)]
+            : host.Split(':')[0];
+
+        bool isLocal = hostWithoutPort.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                       hostWithoutPort.EndsWith(".local", StringComparison.OrdinalIgnoreCase) ||
+                       System.Net.IPAddress.TryParse(hostWithoutPort.Trim('[', ']'), out _);
+        bool isDomain = System.Text.RegularExpressions.Regex.IsMatch(
+            hostWithoutPort,
+            @"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\.?$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        if (!isLocal && !isDomain) return null;
+        return (isLocal ? "http://" : "https://") + text;
     }
 
     private static bool LooksLikeUrl(string value)

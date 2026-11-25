@@ -111,6 +111,19 @@ Check("условие: домен → browser.url contains",
     ExpressionEvaluator.NormalizeCondition("youtube.com") == "browser.url contains \"youtube.com\"",
     ExpressionEvaluator.NormalizeCondition("youtube.com"));
 
+Check("URL: Firefox без схемы",
+    BrowserUrlReader.NormalizeUrl("www.nexusmods.com/mods?page=2") ==
+    "https://www.nexusmods.com/mods?page=2",
+    BrowserUrlReader.NormalizeUrl("www.nexusmods.com/mods?page=2") ?? "null");
+Check("URL: localhost получает http",
+    BrowserUrlReader.NormalizeUrl("localhost:3000/test") == "http://localhost:3000/test",
+    BrowserUrlReader.NormalizeUrl("localhost:3000/test") ?? "null");
+Check("URL: поисковый запрос не URL",
+    BrowserUrlReader.NormalizeUrl("hello world") is null &&
+    BrowserUrlReader.NormalizeUrl("nexusmods") is null);
+Check("URL: схема сохраняется",
+    BrowserUrlReader.NormalizeUrl("http://example.com/a") == "http://example.com/a");
+
 var urlChild = new Profile
 {
     Id = "yt-url", Name = "Браузер · YouTube URL", ParentId = "browser",
