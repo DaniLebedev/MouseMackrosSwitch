@@ -14,7 +14,7 @@ public sealed class ProfileEngine : IDisposable
     private readonly KeyboardHook _keyboard;
     private readonly MouseHook _mouse;
     private readonly WindowWatcher _watcher;
-    private readonly ActionExecutor _executor = new();
+    private readonly ActionExecutor _executor;
 
     private readonly Dictionary<string, Dictionary<string, Binding>> _lookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _layerIndex = new(StringComparer.OrdinalIgnoreCase);
@@ -41,6 +41,7 @@ public sealed class ProfileEngine : IDisposable
     {
         Config = config;
         ActiveProfile = config.FallbackProfile;
+        _executor = new ActionExecutor(() => CurrentWindow);
 
         _keyboard = new KeyboardHook();
         _keyboard.KeyEvent += OnKey;

@@ -71,6 +71,36 @@ public static class MacroScript
                     break;
                 }
 
+                case "browser":
+                {
+                    var bits = argument.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                    var op = bits.Length > 0 ? bits[0].ToLowerInvariant() : "";
+                    if (op == "goto")
+                    {
+                        var url = Unquote(bits.Length > 1 ? bits[1].Trim() : "");
+                        if (url.Length > 0)
+                            steps.Add(new MacroStep("browser", "goto", 0, 0, 0, url));
+                        break;
+                    }
+
+                    if (op != "page") break;
+                    var arg = bits.Length > 1 ? bits[1].Trim().ToLowerInvariant() : "";
+                    if (arg is "+1" or "next" or "вперёд" or "вперед")
+                    {
+                        steps.Add(new MacroStep("browser", "page", 0, 0, 1, null));
+                    }
+                    else if (arg is "-1" or "prev" or "previous" or "назад")
+                    {
+                        steps.Add(new MacroStep("browser", "page", 0, 0, -1, null));
+                    }
+                    else if (int.TryParse(arg, out var page))
+                    {
+                        steps.Add(new MacroStep("browser", "page-set", 0, 0,
+                            Math.Clamp(page, 0, 1_000_000), null));
+                    }
+                    break;
+                }
+
                 case "press":
                 case "down":
                 case "up":
@@ -142,6 +172,10 @@ public static class MacroScript
         "wheel down 2 — прокрутить колесо\n" +
         "move 10 -5 — сдвинуть курсор (x y)\n" +
         "cursor right 10 — сдвинуть курсор вправо\n" +
+        "browser page +1 — следующая страница (?page=N)\n" +
+        "browser page -1 — предыдущая страница\n" +
+        "browser page 287 — конкретная страница\n" +
+        "browser goto \"https://…\" — открыть URL\n" +
         "press mouse:left — клик мышью";
 }
 
@@ -149,6 +183,10 @@ public sealed class ActionExecutor : IDisposable
 {
     private readonly Dictionary<string, CancellationTokenSource> _running = new();
     private readonly object _gate = new();
+    private readonly Func<WindowInfo?>? _windowProvider;
+
+    public ActionExecutor(Func<WindowInfo?>? windowProvider = null) =>
+        _windowProvider = windowProvider;
 
     public event Action<string>? ProfileSwitchRequested;
     public event Action<string>? Error;
@@ -318,6 +356,29 @@ public sealed class ActionExecutor : IDisposable
                     case "move":
                         InputSender.MoveRelative(step.Modifiers1, step.Modifiers2);
                         break;
+                    case "browser":
+                    {
+                        var window = _windowProvider?.Invoke();
+                        bool ok = step.Key switch
+                        {
+                            "page" => BrowserMacro.TryChangePage(window, step.Number, out _),
+                            "page-set" => BrowserMacro.TrySetPage(window, step.Number, out _),
+                            "goto" => BrowserMacro.TryGoTo(window, step.Text ?? "", out _),
+                            _ => false
+                        };
+                        if (!ok)
+                        {
+                            var message = step.Key switch
+                            {
+                                "page" or "page-set" => "Не удалось изменить page= (URL не определён или нет параметра).",
+                                "goto" => "Не удалось открыть URL.",
+                                _ => "Неизвестная команда browser."
+                            };
+                            Error?.Invoke(message);
+                            ProfileStore.Log("[browser] " + message);
+                        }
+                        break;
+                    }
                     case "press":
                         if (step.Key is null) break;
                         SendCombo(step.Key, step.Modifiers1, step.Modifiers2, true);

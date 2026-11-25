@@ -244,6 +244,28 @@ Check("макрос: move", motion.Count == 3 &&
 Check("макрос: cursor right", motion[1].Modifiers1 == 7 && motion[1].Modifiers2 == 0);
 Check("макрос: cursor up", motion[2].Modifiers1 == 0 && motion[2].Modifiers2 == -3);
 
+Check("browser: page +1",
+    BrowserMacro.TryReplacePage("https://www.nexusmods.com/games?sort=mods&page=286",
+        1, out var pageNext, out _) && pageNext.EndsWith("page=287"),
+    pageNext);
+Check("browser: page -1",
+    BrowserMacro.TryReplacePage("https://www.nexusmods.com/games?page=286", -1, out var pagePrev, out _) &&
+    pagePrev.EndsWith("page=285"), pagePrev);
+Check("browser: page set",
+    BrowserMacro.TrySetPageValue("https://x.test/list?page=5", 287, out var pageSet, out _) &&
+    pageSet.EndsWith("page=287"), pageSet);
+Check("browser: page append",
+    BrowserMacro.TrySetPageValue("https://x.test/list?sort=mods", 2, out var pageAdd, out _) &&
+    pageAdd.Contains("&page=2"), pageAdd);
+Check("browser: no page parameter",
+    !BrowserMacro.TryReplacePage("https://x.test/list", 1, out _, out _));
+
+var browserSteps = MacroScript.Parse("browser page +1\nbrowser goto \"https://x.test\"");
+Check("макрос: browser page", browserSteps.Count == 2 &&
+    browserSteps[0].Kind == "browser" && browserSteps[0].Key == "page" && browserSteps[0].Number == 1);
+Check("макрос: browser goto", browserSteps[1].Key == "goto" &&
+    browserSteps[1].Text == "https://x.test", browserSteps[1].Text ?? "null");
+
 // ---------------------------------------------------------------- psf
 Check("кодирование A", PsfGenerator.EncodeLetterTrigger('A') == "700704",
     PsfGenerator.EncodeLetterTrigger('A'));
