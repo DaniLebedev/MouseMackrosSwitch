@@ -471,11 +471,29 @@ public sealed class ProfileEngine : IDisposable
         }
 
         if (!Effective) return;
-        InputObserved?.Invoke(this, new InputEventInfo(DateTime.Now, "Мышь", e.DisplayName, key));
+
+        // Manual layers can be switched by LMB/RMB/MB too; those buttons are
+        // delivered as mouse events, not as the neutral keyboard triggers.
+        int button = MouseButtonMap.ButtonForTrigger(key);
+        int layerDirection = 0;
+        if (button > 0)
+        {
+            if (button == ActiveProfile.LayerNextButton) layerDirection = 1;
+            else if (button == ActiveProfile.LayerPrevButton) layerDirection = -1;
+        }
+        if (layerDirection != 0)
+        {
+            InputObserved?.Invoke(this, new InputEventInfo(DateTime.Now, "Мышь", e.DisplayName, key));
+            if (e.IsDown) SwitchLayer(layerDirection);
+            e.Handled = true;
+            return;
+        }
 
         var binding = FindBinding(key);
         if (binding is null) return;
         if (binding.Action.Kind == ActionKind.PassThrough) return;
+
+        InputObserved?.Invoke(this, new InputEventInfo(DateTime.Now, "Мышь", e.DisplayName, key));
 
         ProfileStore.Log($"[action] {ActiveProfile.Name}{LayerSuffix} | {e.DisplayName} | {binding.Action.Kind} | {binding.Label}");
         e.Handled = true;

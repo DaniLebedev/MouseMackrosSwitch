@@ -67,6 +67,16 @@ public static class MouseButtonMap
     public static int ButtonForTrigger(string? triggerText)
     {
         var trigger = Trigger.Parse(triggerText);
+        if (trigger.Kind == TriggerKind.MouseButton)
+        {
+            return trigger.Value.ToLowerInvariant() switch
+            {
+                "left" => 12,
+                "right" => 13,
+                "middle" => 14,
+                _ => 0
+            };
+        }
         if (trigger.Kind != TriggerKind.Key) return 0;
 
         if (!Interop.KeyNames.TryParseCombo(trigger.Value, out var modifiers, out int key)) return 0;

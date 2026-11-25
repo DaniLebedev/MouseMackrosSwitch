@@ -159,6 +159,39 @@ public sealed class MouseHook : IDisposable
 
                 switch (message)
                 {
+                    case Interop.NativeMethods.WM_LBUTTONDOWN:
+                    case Interop.NativeMethods.WM_LBUTTONUP:
+                        args = new MouseInputEventArgs
+                        {
+                            Trigger = Trigger.Mouse("Left"),
+                            IsDown = message == Interop.NativeMethods.WM_LBUTTONDOWN,
+                            IsInjected = isInjected,
+                            DisplayName = Trigger.Mouse("Left").DisplayName
+                        };
+                        break;
+
+                    case Interop.NativeMethods.WM_RBUTTONDOWN:
+                    case Interop.NativeMethods.WM_RBUTTONUP:
+                        args = new MouseInputEventArgs
+                        {
+                            Trigger = Trigger.Mouse("Right"),
+                            IsDown = message == Interop.NativeMethods.WM_RBUTTONDOWN,
+                            IsInjected = isInjected,
+                            DisplayName = Trigger.Mouse("Right").DisplayName
+                        };
+                        break;
+
+                    case Interop.NativeMethods.WM_MBUTTONDOWN:
+                    case Interop.NativeMethods.WM_MBUTTONUP:
+                        args = new MouseInputEventArgs
+                        {
+                            Trigger = Trigger.Mouse("Middle"),
+                            IsDown = message == Interop.NativeMethods.WM_MBUTTONDOWN,
+                            IsInjected = isInjected,
+                            DisplayName = Trigger.Mouse("Middle").DisplayName
+                        };
+                        break;
+
                     case Interop.NativeMethods.WM_XBUTTONDOWN:
                     case Interop.NativeMethods.WM_XBUTTONUP:
                     {

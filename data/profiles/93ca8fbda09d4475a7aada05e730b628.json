@@ -1,0 +1,143 @@
+{
+  "Id": "93ca8fbda09d4475a7aada05e730b628",
+  "Name": "Слой 1",
+  "Accent": "#4C9AFF",
+  "Applications": [
+    "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+  ],
+  "ApplicationPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+  "VendorProfilePath": "D:\\Projects\\MouseMackrosSwitch\\data\\psf\\CVAT_Job_Words.psf",
+  "PsfRevision": 4,
+  "Match": {
+    "Processes": [
+      "firefox"
+    ],
+    "Priority": 0
+  },
+  "Bindings": [
+    {
+      "Button": 1,
+      "Trigger": "key:Ctrl+Shift+Alt+A",
+      "Label": "F",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text fish_and_chips\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 2,
+      "Trigger": "key:Ctrl+Shift+Alt+B",
+      "Label": "P",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text Lemon wedge\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 3,
+      "Trigger": "key:Ctrl+Shift+Alt+C",
+      "Label": "C",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text Coleslaw\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 4,
+      "Trigger": "key:Ctrl+Shift+Alt+D",
+      "Label": "T",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text Tartar sauce\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 5,
+      "Trigger": "key:Ctrl+Shift+Alt+E",
+      "Label": "P",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text green peas\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 6,
+      "Trigger": "key:Ctrl+Shift+Alt+F",
+      "Label": "L",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text Lettuce\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 7,
+      "Trigger": "key:Ctrl+Shift+Alt+G",
+      "Label": "W",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text Mushy peas\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 8,
+      "Trigger": "key:Ctrl+Shift+Alt+H",
+      "Label": "P",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text Parsley\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    },
+    {
+      "Button": 9,
+      "Trigger": "key:Ctrl+Shift+Alt+I",
+      "Label": "K",
+      "Action": {
+        "Kind": "Macro",
+        "Value": "",
+        "Script": "text ketchup\r\npress Enter",
+        "Mode": "Once",
+        "Repeat": 0
+      },
+      "Enabled": true
+    }
+  ],
+  "IsFallback": false,
+  "ParentId": "c0d00350887e4feb94d092d6ae8c31a0",
+  "IsManualLayer": true,
+  "LayerOrder": 1,
+  "IndicatorColor": "#FF0000",
+  "LayerNextButton": 0,
+  "LayerPrevButton": 0
+}

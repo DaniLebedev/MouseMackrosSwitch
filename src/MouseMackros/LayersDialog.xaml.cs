@@ -49,6 +49,9 @@ public partial class LayersDialog : Window
         var list = new string[17];
         list[0] = "нет";
         for (int i = 1; i <= 16; i++) list[i] = i.ToString();
+        list[12] = "12 — ЛКМ";
+        list[13] = "13 — ПКМ";
+        list[14] = "14 — СКМ";
         return list;
     }
 

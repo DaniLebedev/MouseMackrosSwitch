@@ -163,7 +163,7 @@
   "ParentId": "browser",
   "IsManualLayer": false,
   "LayerOrder": 0,
-  "IndicatorColor": "#9B6BF2",
+  "IndicatorColor": "#8000FF",
   "LayerNextButton": 0,
-  "LayerPrevButton": 0
+  "LayerPrevButton": 14
 }

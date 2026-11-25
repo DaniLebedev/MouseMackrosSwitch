@@ -59,6 +59,12 @@ Check("wildcard: Chrome регистронезависим", ProfileEngine.Wildc
 Check("wildcard: *game*", ProfileEngine.Wildcard("*game*", "mygameclient"));
 Check("wildcard: game.exe", ProfileEngine.Wildcard("game.exe", "game"));
 Check("wildcard: нет ложного совпадения", !ProfileEngine.Wildcard("chrome", "msedge"));
+Check("mouse:Left → кнопка 12", MouseButtonMap.ButtonForTrigger("mouse:Left") == 12,
+    MouseButtonMap.ButtonForTrigger("mouse:Left").ToString());
+Check("mouse:Right → кнопка 13", MouseButtonMap.ButtonForTrigger("mouse:Right") == 13,
+    MouseButtonMap.ButtonForTrigger("mouse:Right").ToString());
+Check("mouse:Middle → кнопка 14", MouseButtonMap.ButtonForTrigger("mouse:Middle") == 14,
+    MouseButtonMap.ButtonForTrigger("mouse:Middle").ToString());
 
 // ---------------------------------------------------------------- sub-profiles
 var nested = new AppConfig { DefaultProfileId = "fallback" };
