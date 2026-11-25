@@ -59,9 +59,12 @@
                 <TextBox Grid.Row="1" x:Name="ScriptBox" AcceptsReturn="True" TextWrapping="NoWrap"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                          FontFamily="Consolas" FontSize="12.5" Padding="8" />
-                <TextBlock Grid.Row="2" Text="{Binding HelpText, RelativeSource={RelativeSource AncestorType=Window}}"
-                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,8,0,0"
-                           TextWrapping="Wrap" />
+                <ScrollViewer Grid.Row="2" MaxHeight="120" VerticalScrollBarVisibility="Auto"
+                              Margin="0,8,0,0">
+                    <TextBlock Text="{Binding HelpText, RelativeSource={RelativeSource AncestorType=Window}}"
+                               Style="{StaticResource MutedText}" FontSize="11"
+                               TextWrapping="Wrap" />
+                </ScrollViewer>
                 <TextBlock Grid.Row="3" Text="Каждая строка — шаг. Для фарма: press mouse:right + delay 5000, режим «Вкл / выкл»."
                            Style="{StaticResource MutedText}" FontSize="11" Margin="0,6,0,0"
                            TextWrapping="Wrap" />

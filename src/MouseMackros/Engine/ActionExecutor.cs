@@ -7,7 +7,7 @@ using MouseMackros.Services;
 
 namespace MouseMackros.Engine;
 
-public sealed record MacroStep(string Kind, string? Key, int Modifiers1, int Modifiers2, int Number, string? Text);
+public sealed record MacroStep(string Kind, string? Key, int Modifiers1, int Modifiers2, int Number, string? Text, string? Text2 = null);
 
 /// <summary>
 /// Tiny macro language, one command per line:
@@ -73,30 +73,87 @@ public static class MacroScript
 
                 case "browser":
                 {
-                    var bits = argument.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-                    var op = bits.Length > 0 ? bits[0].ToLowerInvariant() : "";
-                    if (op == "goto")
+                    var args = SplitArgs(argument);
+                    var op = args.Count > 0 ? args[0].ToLowerInvariant() : "";
+                    switch (op)
                     {
-                        var url = Unquote(bits.Length > 1 ? bits[1].Trim() : "");
-                        if (url.Length > 0)
-                            steps.Add(new MacroStep("browser", "goto", 0, 0, 0, url));
-                        break;
-                    }
+                        case "goto" when args.Count > 1 && args[1].Length > 0:
+                            steps.Add(new MacroStep("browser", "goto", 0, 0, 0, args[1]));
+                            break;
 
-                    if (op != "page") break;
-                    var arg = bits.Length > 1 ? bits[1].Trim().ToLowerInvariant() : "";
-                    if (arg is "+1" or "next" or "вперёд" or "вперед")
-                    {
-                        steps.Add(new MacroStep("browser", "page", 0, 0, 1, null));
-                    }
-                    else if (arg is "-1" or "prev" or "previous" or "назад")
-                    {
-                        steps.Add(new MacroStep("browser", "page", 0, 0, -1, null));
-                    }
-                    else if (int.TryParse(arg, out var page))
-                    {
-                        steps.Add(new MacroStep("browser", "page-set", 0, 0,
-                            Math.Clamp(page, 0, 1_000_000), null));
+                        case "page" when args.Count > 1:
+                        {
+                            var arg = args[1].ToLowerInvariant();
+                            if (arg is "+1" or "next" or "вперёд" or "вперед")
+                                steps.Add(new MacroStep("browser", "page", 0, 0, 1, null));
+                            else if (arg is "-1" or "prev" or "previous" or "назад")
+                                steps.Add(new MacroStep("browser", "page", 0, 0, -1, null));
+                            else if (int.TryParse(arg, out var page))
+                                steps.Add(new MacroStep("browser", "page-set", 0, 0,
+                                    Math.Clamp(page, 0, 1_000_000), null));
+                            break;
+                        }
+
+                        case "set_param" when args.Count >= 3:
+                            steps.Add(new MacroStep("browser", "set_param", 0, 0, 0,
+                                args[1], args[2]));
+                            break;
+
+                        case "change_param" when args.Count >= 3:
+                        {
+                            int delta = ParseSigned(args[2], 0);
+                            if (delta != 0)
+                                steps.Add(new MacroStep("browser", "change_param", 0, 0,
+                                    Math.Clamp(delta, -1_000_000, 1_000_000), args[1]));
+                            break;
+                        }
+
+                        case "set_param_url" when args.Count >= 3:
+                            if (int.TryParse(args[1], out var setIndex))
+                                steps.Add(new MacroStep("browser", "set_param_url", 0, 0,
+                                    Math.Clamp(setIndex, 1, 128), args[2]));
+                            break;
+
+                        case "change_param_url" when args.Count >= 3:
+                        {
+                            if (!int.TryParse(args[1], out var changeIndex)) break;
+                            int delta = ParseSigned(args[2], 0);
+                            if (delta != 0)
+                                steps.Add(new MacroStep("browser", "change_param_url",
+                                    Math.Clamp(delta, -1_000_000, 1_000_000), 0,
+                                    Math.Clamp(changeIndex, 1, 128), null));
+                            break;
+                        }
+
+                        case "tab" when args.Count > 1:
+                        {
+                            var sub = args[1].ToLowerInvariant();
+                            if (sub == "new")
+                            {
+                                string? tabUrl = null;
+                                int position = 0;
+                                for (int i = 2; i < args.Count; i++)
+                                {
+                                    if (int.TryParse(args[i], out var pos))
+                                        position = Math.Clamp(pos, 0, 128);
+                                    else if (string.IsNullOrWhiteSpace(tabUrl))
+                                        tabUrl = args[i];
+                                }
+                                steps.Add(new MacroStep("browser", "tab-new", 0, 0, position, tabUrl));
+                            }
+                            else if (sub == "close")
+                            {
+                                int position = 0;
+                                if (args.Count > 2) int.TryParse(args[2], out position);
+                                steps.Add(new MacroStep("browser", "tab-close", 0, 0,
+                                    Math.Clamp(position, 0, 128), null));
+                            }
+                            break;
+                        }
+
+                        case "update":
+                            steps.Add(new MacroStep("browser", "update", 0, 0, 0, null));
+                            break;
                     }
                     break;
                 }
@@ -151,6 +208,39 @@ public static class MacroScript
         return s;
     }
 
+    private static List<string> SplitArgs(string text)
+    {
+        var result = new List<string>();
+        int i = 0;
+        while (i < text.Length)
+        {
+            while (i < text.Length && char.IsWhiteSpace(text[i])) i++;
+            if (i >= text.Length) break;
+
+            char quote = text[i] is '"' or '\'' ? text[i] : '\0';
+            if (quote != '\0') i++;
+
+            var sb = new StringBuilder();
+            while (i < text.Length)
+            {
+                char c = text[i];
+                if (quote != '\0' && c == quote) { i++; break; }
+                if (quote == '\0' && char.IsWhiteSpace(c)) break;
+                if (c == '\\' && i + 1 < text.Length)
+                {
+                    i++;
+                    sb.Append(text[i++]);
+                    continue;
+                }
+                sb.Append(c);
+                i++;
+            }
+
+            result.Add(sb.ToString());
+        }
+        return result;
+    }
+
     private static int ParseInt(string s, int fallback)
     {
         var m = Regex.Match(s, @"\d+");
@@ -175,6 +265,13 @@ public static class MacroScript
         "browser page +1 — следующая страница (?page=N)\n" +
         "browser page -1 — предыдущая страница\n" +
         "browser page 287 — конкретная страница\n" +
+        "browser set_param \"page\" \"287\" — параметр URL\n" +
+        "browser change_param \"page\" +1 — изменить числовой параметр\n" +
+        "browser set_param_url 2 \"1366540\" — 2-й сегмент пути\n" +
+        "browser change_param_url 2 +1 — изменить числовой сегмент\n" +
+        "browser tab new \"https://…\" 2 — новая вкладка на позиции 2\n" +
+        "browser tab close 2 — закрыть 2-ю вкладку\n" +
+        "browser update — обновить страницу (F5)\n" +
         "browser goto \"https://…\" — открыть URL\n" +
         "press mouse:left — клик мышью";
 }
@@ -359,21 +456,32 @@ public sealed class ActionExecutor : IDisposable
                     case "browser":
                     {
                         var window = _windowProvider?.Invoke();
+                        string error = "";
                         bool ok = step.Key switch
                         {
-                            "page" => BrowserMacro.TryChangePage(window, step.Number, out _),
-                            "page-set" => BrowserMacro.TrySetPage(window, step.Number, out _),
-                            "goto" => BrowserMacro.TryGoTo(window, step.Text ?? "", out _),
+                            "page" => BrowserMacro.TryChangePage(window, step.Number, out error),
+                            "page-set" => BrowserMacro.TrySetPage(window, step.Number, out error),
+                            "goto" => BrowserMacro.TryGoTo(window, step.Text ?? "", out error),
+                            "set_param" => BrowserMacro.TrySetQuery(window,
+                                step.Text ?? "", step.Text2 ?? "", out error),
+                            "change_param" => BrowserMacro.TryChangeQuery(window,
+                                step.Text ?? "", step.Number, out error),
+                            "set_param_url" => BrowserMacro.TrySetPath(window,
+                                step.Number, step.Text ?? "", out error),
+                            "change_param_url" => BrowserMacro.TryChangePath(window,
+                                step.Number, step.Modifiers1, out error),
+                            "tab-new" => BrowserMacro.TryNewTab(window,
+                                step.Text, step.Number, out error),
+                            "tab-close" => BrowserMacro.TryCloseTab(window,
+                                step.Number, out error),
+                            "update" => BrowserMacro.TryReload(window, out error),
                             _ => false
                         };
                         if (!ok)
                         {
-                            var message = step.Key switch
-                            {
-                                "page" or "page-set" => "Не удалось изменить page= (URL не определён или нет параметра).",
-                                "goto" => "Не удалось открыть URL.",
-                                _ => "Неизвестная команда browser."
-                            };
+                            var message = string.IsNullOrWhiteSpace(error)
+                                ? "Неизвестная или неподдерживаемая команда browser."
+                                : error;
                             Error?.Invoke(message);
                             ProfileStore.Log("[browser] " + message);
                         }

@@ -266,6 +266,44 @@ Check("макрос: browser page", browserSteps.Count == 2 &&
 Check("макрос: browser goto", browserSteps[1].Key == "goto" &&
     browserSteps[1].Text == "https://x.test", browserSteps[1].Text ?? "null");
 
+Check("browser: set query existing",
+    BrowserMacro.TrySetQueryValue("https://x.test/list?page=5&sort=mods", "page", "287",
+        out var q1, out _) && q1.Contains("page=287") && q1.Contains("sort=mods"), q1);
+Check("browser: set query new",
+    BrowserMacro.TrySetQueryValue("https://x.test/list?sort=mods", "page", "287",
+        out var q2, out _) && q2.Contains("&page=287"), q2);
+Check("browser: change query",
+    BrowserMacro.TryChangeQueryValue("https://x.test/list?page=5", "page", 1,
+        out var q3, out _) && q3.EndsWith("page=6"), q3);
+Check("browser: set path",
+    BrowserMacro.TrySetPathValue("https://steamcommunity.com/app/1366540", 2, "999",
+        out var p1, out _) && p1 == "https://steamcommunity.com/app/999", p1);
+Check("browser: change path",
+    BrowserMacro.TryChangePathValue("https://steamcommunity.com/app/1366540", 2, 1,
+        out var p2, out _) && p2 == "https://steamcommunity.com/app/1366541", p2);
+
+var extended = MacroScript.Parse("""
+    browser set_param "page" "287"
+    browser change_param "page" +1
+    browser set_param_url 2 "999"
+    browser change_param_url 2 -1
+    browser tab new "https://x.test" 2
+    browser tab close 2
+    browser update
+    """);
+Check("макрос: set_param", extended[0].Key == "set_param" &&
+    extended[0].Text == "page" && extended[0].Text2 == "287");
+Check("макрос: change_param", extended[1].Key == "change_param" &&
+    extended[1].Text == "page" && extended[1].Number == 1);
+Check("макрос: set_param_url", extended[2].Key == "set_param_url" &&
+    extended[2].Number == 2 && extended[2].Text == "999");
+Check("макрос: change_param_url", extended[3].Key == "change_param_url" &&
+    extended[3].Number == 2 && extended[3].Modifiers1 == -1);
+Check("макрос: tab new", extended[4].Key == "tab-new" &&
+    extended[4].Number == 2 && extended[4].Text == "https://x.test");
+Check("макрос: tab close", extended[5].Key == "tab-close" && extended[5].Number == 2);
+Check("макрос: update", extended[6].Key == "update");
+
 // ---------------------------------------------------------------- psf
 Check("кодирование A", PsfGenerator.EncodeLetterTrigger('A') == "700704",
     PsfGenerator.EncodeLetterTrigger('A'));
