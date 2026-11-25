@@ -768,7 +768,8 @@ public partial class MainWindow : Window
         var row = RowOf(sender);
         if (row?.Model is null) return;
 
-        var dialog = new MacroDialog(row.Model.Action, _app.Engine) { Owner = this };
+        var dialog = new MacroDialog(row.Model.Action, _app.Engine,
+            $"{_selected?.Name ?? "macro"}-button{row.Model.Button}") { Owner = this };
         if (dialog.ShowDialog() != true) return;
 
         row.Model.Action = dialog.Action;

@@ -29,20 +29,18 @@
             </Grid>
 
             <StackPanel Grid.Row="1" Margin="20,16,20,8">
-                <TextBlock Text="ПРОГРАММЫ" Style="{StaticResource SectionTitle}" />
-                <TextBox x:Name="ProcessesBox" ToolTip="Имена процессов через запятую, * — шаблон" />
-                <TextBlock Text="Имена процессов без .exe, через запятую. Шаблоны: chrom*, *game*."
-                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap" />
-
-                <Grid Margin="0,16,0,0">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="12" />
                         <ColumnDefinition Width="110" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock Text="ЗАГОЛОВОК СОДЕРЖИТ" Style="{StaticResource SectionTitle}" />
-                        <TextBox x:Name="TitleBox" />
+                        <TextBlock Text="ПРОГРАММЫ" Style="{StaticResource SectionTitle}" />
+                        <TextBox x:Name="ProcessesBox" ToolTip="Имена процессов через запятую, * — шаблон" />
+                        <TextBlock Text="Имена процессов без .exe, через запятую. Шаблоны: chrom*, *game*."
+                                   Style="{StaticResource MutedText}" FontSize="11" Margin="0,6,0,0"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="ПРИОРИТЕТ" Style="{StaticResource SectionTitle}" />
@@ -50,18 +48,28 @@
                     </StackPanel>
                 </Grid>
 
-                <TextBlock Text="КЛАСС ОКНА" Style="{StaticResource SectionTitle}" Margin="0,16,0,8" />
-                <TextBox x:Name="ClassBox" />
+                <CheckBox x:Name="AdvancedCheck" Foreground="{StaticResource MutedBrush}"
+                          Content="Дополнительные фильтры: заголовок и класс окна"
+                          Margin="0,16,0,0" Checked="Advanced_Changed" Unchecked="Advanced_Changed" />
+                <StackPanel x:Name="AdvancedPanel" Visibility="Collapsed" Margin="0,8,0,0">
+                    <TextBlock Text="ЗАГОЛОВОК СОДЕРЖИТ" Style="{StaticResource SectionTitle}" />
+                    <TextBox x:Name="TitleBox" />
+                    <TextBlock Text="КЛАСС ОКНА" Style="{StaticResource SectionTitle}" Margin="0,12,0,0" />
+                    <TextBox x:Name="ClassBox" />
+                    <TextBlock Text="Обычно не нужно: в условии это пишется как title contains &quot;…&quot; или class == &quot;…&quot;."
+                               Style="{StaticResource MutedText}" FontSize="11" Margin="0,6,0,0"
+                               TextWrapping="Wrap" />
+                </StackPanel>
 
-                <TextBlock Text="УСЛОВИЕ (МИНИ-ЯЗЫК)" Style="{StaticResource SectionTitle}" Margin="0,16,0,8" />
-                <TextBox x:Name="ExpressionBox" AcceptsReturn="True" TextWrapping="Wrap" Height="62" />
-                <TextBlock Text="browser.url contains &quot;youtube.com&quot; · title contains &quot;YouTube&quot; · process == &quot;firefox&quot; &amp;&amp; browser.url startsWith &quot;https://&quot;"
-                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap" />
-
-                <TextBlock Text="Если задано несколько условий, профиль включается только при совпадении всех."
-                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap" />
-                <TextBlock Text="При совпадении нескольких профилей побеждает профиль с большим приоритетом."
-                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap" />
+                <Grid Margin="0,16,0,8">
+                    <TextBlock Text="УСЛОВИЕ (МИНИ-ЯЗЫК)" Style="{StaticResource SectionTitle}" />
+                    <Button Style="{StaticResource GhostButton}" Content="Подсказки"
+                            HorizontalAlignment="Right" Padding="10,2" Click="Help_Click" />
+                </Grid>
+                <TextBox x:Name="ExpressionBox" AcceptsReturn="True" TextWrapping="Wrap" Height="76" />
+                <TextBlock Text="Условие работает вместе с программами. Примеры и операторы — в окне «Подсказки»."
+                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,8,0,0"
+                           TextWrapping="Wrap" />
             </StackPanel>
 
             <Border Grid.Row="2" Background="#16191F" BorderBrush="{StaticResource BorderBrush}"

@@ -18,6 +18,7 @@ public sealed class ProfileEngine : IDisposable
 
     private readonly Dictionary<string, Dictionary<string, Binding>> _lookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _layerIndex = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SynchronizationContext? _uiContext = SynchronizationContext.Current;
     private bool _lookupDirty = true;
     private string? _manualProfileId;
     private string? _lastWheelColor;
@@ -50,8 +51,15 @@ public sealed class ProfileEngine : IDisposable
         _watcher = new WindowWatcher();
         _watcher.ForegroundChanged += OnForeground;
 
-        _executor.ProfileSwitchRequested += id => Notice?.Invoke(this, "profile:" + id);
-        _executor.Error += msg => Error?.Invoke(this, msg);
+        _executor.ProfileSwitchRequested += id =>
+            Post(() => Notice?.Invoke(this, "profile:" + id));
+        _executor.ProfileCycleRequested += direction =>
+            Post(() => CycleProfile(direction));
+        _executor.LayerCycleRequested += direction =>
+            Post(() => SwitchLayer(direction));
+        _executor.LayerSetRequested += index =>
+            Post(() => SetLayer(index));
+        _executor.Error += msg => Post(() => Error?.Invoke(this, msg));
     }
 
     public void Start()
@@ -91,6 +99,25 @@ public sealed class ProfileEngine : IDisposable
             copy.Repeat = Math.Max(1, copy.Repeat);
         }
         _executor.ExecuteStart("__test__", copy);
+    }
+
+    private void Post(Action action)
+    {
+        if (_uiContext is not null &&
+            !ReferenceEquals(SynchronizationContext.Current, _uiContext))
+        {
+            _uiContext.Post(_ => action(), null);
+            return;
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(action);
+            return;
+        }
+
+        action();
     }
 
     public void SwitchProfile(string id)
@@ -160,6 +187,49 @@ public sealed class ProfileEngine : IDisposable
         ProfileStore.Log($"[layer] «{ActiveProfile.Name}» → «{name}» ({index + 1}/{count})");
         ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
         UpdateWheelColor();
+    }
+
+    /// <summary>Selects a manual layer by number: 0 is the base profile.</summary>
+    public void SetLayer(int index)
+    {
+        var layers = GetManualLayers(ActiveProfile);
+        if (layers.Count == 0)
+        {
+            Notice?.Invoke(this, "У профиля нет ручных слоёв");
+            return;
+        }
+
+        index = Math.Clamp(index, 0, layers.Count);
+        _layerIndex[ActiveProfile.Id] = index;
+        ActiveLayer = index == 0 ? null : layers[index - 1];
+
+        var name = ActiveLayer?.Name ?? "базовая";
+        ProfileStore.Log($"[layer] «{ActiveProfile.Name}» → «{name}» ({index + 1}/{layers.Count + 1})");
+        ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
+        UpdateWheelColor();
+    }
+
+    /// <summary>Switches to the next/previous ordinary profile.</summary>
+    public void CycleProfile(int direction)
+    {
+        var profiles = Config.Profiles
+            .Where(profile => !profile.IsFallback && !profile.IsManualLayer &&
+                              string.IsNullOrWhiteSpace(profile.ParentId))
+            .ToList();
+
+        if (profiles.Count <= 1)
+        {
+            Notice?.Invoke(this, "Нет других профилей");
+            return;
+        }
+
+        int index = profiles.FindIndex(profile => profile.Id == ActiveProfile.Id);
+        if (index < 0) index = 0;
+        index = ((index + direction) % profiles.Count + profiles.Count) % profiles.Count;
+
+        var target = profiles[index];
+        ProfileStore.Log($"[profile] ручное переключение → «{target.Name}»");
+        SwitchProfile(target.Id);
     }
 
     private void UpdateWheelColor()

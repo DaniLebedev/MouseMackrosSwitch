@@ -45,6 +45,12 @@ public sealed class ActionSpec
     /// <summary>Macro script, used when <see cref="Kind"/> is <see cref="ActionKind.Macro"/>.</summary>
     public string? Script { get; set; }
 
+    /// <summary>
+    /// Optional .macro file. When set and readable, the file content is used
+    /// instead of <see cref="Script"/>, so edits in VS Code apply immediately.
+    /// </summary>
+    public string? ScriptPath { get; set; }
+
     public MacroMode Mode { get; set; } = MacroMode.Once;
 
     /// <summary>How many extra times to repeat a macro (0 = play once).</summary>
@@ -56,6 +62,7 @@ public sealed class ActionSpec
         Value = Value,
         Arguments = Arguments,
         Script = Script,
+        ScriptPath = ScriptPath,
         Mode = Mode,
         Repeat = Repeat
     };

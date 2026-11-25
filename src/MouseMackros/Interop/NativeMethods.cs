@@ -100,6 +100,7 @@ internal static class NativeMethods
     public delegate IntPtr LowLevelProc(int nCode, IntPtr wParam, IntPtr lParam);
     public delegate void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
         int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+    public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct KBDLLHOOKSTRUCT
@@ -206,7 +207,22 @@ internal static class NativeMethods
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
     public static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll")]
+    public static extern bool LockWorkStation();
+
+    [DllImport("powrprof.dll", SetLastError = true)]
+    public static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
 
     [DllImport("user32.dll")]
     public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc,

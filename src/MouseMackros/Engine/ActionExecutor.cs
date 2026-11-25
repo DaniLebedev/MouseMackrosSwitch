@@ -7,275 +7,6 @@ using MouseMackros.Services;
 
 namespace MouseMackros.Engine;
 
-public sealed record MacroStep(string Kind, string? Key, int Modifiers1, int Modifiers2, int Number, string? Text, string? Text2 = null);
-
-/// <summary>
-/// Tiny macro language, one command per line:
-///   press Ctrl+A | down Shift | up Shift | delay 100 | text hello | wheel up 3 | # comment
-/// </summary>
-public static class MacroScript
-{
-    public static List<MacroStep> Parse(string? script)
-    {
-        var steps = new List<MacroStep>();
-        if (string.IsNullOrWhiteSpace(script)) return steps;
-
-        foreach (var rawLine in script.Replace("\r\n", "\n").Split('\n'))
-        {
-            var line = rawLine.Trim();
-            if (line.Length == 0 || line.StartsWith('#')) continue;
-
-            var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-            var command = parts[0].ToLowerInvariant();
-            var argument = parts.Length > 1 ? parts[1].Trim() : "";
-
-            switch (command)
-            {
-                case "delay":
-                case "wait":
-                    steps.Add(new MacroStep("delay", null, 0, 0, Math.Clamp(ParseInt(argument, 50), 0, 60_000), null));
-                    break;
-
-                case "text":
-                case "type":
-                    steps.Add(new MacroStep("text", null, 0, 0, 0, Unquote(argument)));
-                    break;
-
-                case "wheel":
-                {
-                    var bits = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    var dir = bits.Length > 0 ? bits[0].ToLowerInvariant() : "up";
-                    int count = bits.Length > 1 ? Math.Clamp(ParseInt(bits[1], 1), 1, 50) : 1;
-                    steps.Add(new MacroStep("wheel", dir, 0, 0, count, null));
-                    break;
-                }
-
-                case "move":
-                {
-                    var bits = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    int dx = bits.Length > 0 ? ParseSigned(bits[0], 0) : 0;
-                    int dy = bits.Length > 1 ? ParseSigned(bits[1], 0) : 0;
-                    steps.Add(new MacroStep("move", null, Math.Clamp(dx, -4000, 4000),
-                        Math.Clamp(dy, -4000, 4000), 0, null));
-                    break;
-                }
-
-                case "cursor":
-                {
-                    var bits = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    var dir = bits.Length > 0 ? bits[0].ToLowerInvariant() : "right";
-                    int amount = bits.Length > 1 ? Math.Clamp(ParseInt(bits[1], 10), 1, 127) : 10;
-                    int dx = dir is "left" or "влево" ? -amount : dir is "right" or "вправо" ? amount : 0;
-                    int dy = dir is "up" or "вверх" ? -amount : dir is "down" or "вниз" ? amount : 0;
-                    steps.Add(new MacroStep("move", null, dx, dy, 0, null));
-                    break;
-                }
-
-                case "browser":
-                {
-                    var args = SplitArgs(argument);
-                    var op = args.Count > 0 ? args[0].ToLowerInvariant() : "";
-                    switch (op)
-                    {
-                        case "goto" when args.Count > 1 && args[1].Length > 0:
-                            steps.Add(new MacroStep("browser", "goto", 0, 0, 0, args[1]));
-                            break;
-
-                        case "page" when args.Count > 1:
-                        {
-                            var arg = args[1].ToLowerInvariant();
-                            if (arg is "+1" or "next" or "вперёд" or "вперед")
-                                steps.Add(new MacroStep("browser", "page", 0, 0, 1, null));
-                            else if (arg is "-1" or "prev" or "previous" or "назад")
-                                steps.Add(new MacroStep("browser", "page", 0, 0, -1, null));
-                            else if (int.TryParse(arg, out var page))
-                                steps.Add(new MacroStep("browser", "page-set", 0, 0,
-                                    Math.Clamp(page, 0, 1_000_000), null));
-                            break;
-                        }
-
-                        case "set_param" when args.Count >= 3:
-                            steps.Add(new MacroStep("browser", "set_param", 0, 0, 0,
-                                args[1], args[2]));
-                            break;
-
-                        case "change_param" when args.Count >= 3:
-                        {
-                            int delta = ParseSigned(args[2], 0);
-                            if (delta != 0)
-                                steps.Add(new MacroStep("browser", "change_param", 0, 0,
-                                    Math.Clamp(delta, -1_000_000, 1_000_000), args[1]));
-                            break;
-                        }
-
-                        case "set_param_url" when args.Count >= 3:
-                            if (int.TryParse(args[1], out var setIndex))
-                                steps.Add(new MacroStep("browser", "set_param_url", 0, 0,
-                                    Math.Clamp(setIndex, 1, 128), args[2]));
-                            break;
-
-                        case "change_param_url" when args.Count >= 3:
-                        {
-                            if (!int.TryParse(args[1], out var changeIndex)) break;
-                            int delta = ParseSigned(args[2], 0);
-                            if (delta != 0)
-                                steps.Add(new MacroStep("browser", "change_param_url",
-                                    Math.Clamp(delta, -1_000_000, 1_000_000), 0,
-                                    Math.Clamp(changeIndex, 1, 128), null));
-                            break;
-                        }
-
-                        case "tab" when args.Count > 1:
-                        {
-                            var sub = args[1].ToLowerInvariant();
-                            if (sub == "new")
-                            {
-                                string? tabUrl = null;
-                                int position = 0;
-                                for (int i = 2; i < args.Count; i++)
-                                {
-                                    if (int.TryParse(args[i], out var pos))
-                                        position = Math.Clamp(pos, 0, 128);
-                                    else if (string.IsNullOrWhiteSpace(tabUrl))
-                                        tabUrl = args[i];
-                                }
-                                steps.Add(new MacroStep("browser", "tab-new", 0, 0, position, tabUrl));
-                            }
-                            else if (sub == "close")
-                            {
-                                int position = 0;
-                                if (args.Count > 2) int.TryParse(args[2], out position);
-                                steps.Add(new MacroStep("browser", "tab-close", 0, 0,
-                                    Math.Clamp(position, 0, 128), null));
-                            }
-                            break;
-                        }
-
-                        case "update":
-                            steps.Add(new MacroStep("browser", "update", 0, 0, 0, null));
-                            break;
-                    }
-                    break;
-                }
-
-                case "press":
-                case "down":
-                case "up":
-                {
-                    if (argument.Equals("click", StringComparison.OrdinalIgnoreCase) ||
-                        argument.Equals("lmb", StringComparison.OrdinalIgnoreCase))
-                    {
-                        steps.Add(new MacroStep(command + "mouse", "left", 0, 0, 0, null));
-                        break;
-                    }
-                    if (argument.StartsWith("mouse:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var button = argument[6..].Trim().ToLowerInvariant();
-                        steps.Add(new MacroStep(command + "mouse", button, 0, 0, 0, null));
-                        break;
-                    }
-                    // A bare modifier ("down Shift") is a valid command on its own.
-                    var bareModifier = argument.ToLowerInvariant() switch
-                    {
-                        "ctrl" or "control" => NativeMethods.VK_CONTROL,
-                        "shift" => NativeMethods.VK_SHIFT,
-                        "alt" => NativeMethods.VK_MENU,
-                        "win" or "super" or "meta" => NativeMethods.VK_LWIN,
-                        _ => 0
-                    };
-                    if (bareModifier != 0)
-                    {
-                        steps.Add(new MacroStep(command, bareModifier.ToString(), 0, 0, 0, null));
-                        break;
-                    }
-                    if (!KeyNames.TryParseCombo(argument, out var mods, out var key)) continue;
-                    int m1 = 0, m2 = 0;
-                    if (mods.Count > 0) m1 = mods[0];
-                    if (mods.Count > 1) m2 = mods[1];
-                    steps.Add(new MacroStep(command, key.ToString(), m1, m2, 0, null));
-                    break;
-                }
-            }
-        }
-
-        return steps;
-    }
-
-    private static string Unquote(string s)
-    {
-        if (s.Length >= 2 && ((s[0] == '"' && s[^1] == '"') || (s[0] == '\'' && s[^1] == '\'')))
-            return s[1..^1];
-        return s;
-    }
-
-    private static List<string> SplitArgs(string text)
-    {
-        var result = new List<string>();
-        int i = 0;
-        while (i < text.Length)
-        {
-            while (i < text.Length && char.IsWhiteSpace(text[i])) i++;
-            if (i >= text.Length) break;
-
-            char quote = text[i] is '"' or '\'' ? text[i] : '\0';
-            if (quote != '\0') i++;
-
-            var sb = new StringBuilder();
-            while (i < text.Length)
-            {
-                char c = text[i];
-                if (quote != '\0' && c == quote) { i++; break; }
-                if (quote == '\0' && char.IsWhiteSpace(c)) break;
-                if (c == '\\' && i + 1 < text.Length)
-                {
-                    i++;
-                    sb.Append(text[i++]);
-                    continue;
-                }
-                sb.Append(c);
-                i++;
-            }
-
-            result.Add(sb.ToString());
-        }
-        return result;
-    }
-
-    private static int ParseInt(string s, int fallback)
-    {
-        var m = Regex.Match(s, @"\d+");
-        return m.Success && int.TryParse(m.Value, out var v) ? v : fallback;
-    }
-
-    private static int ParseSigned(string s, int fallback) =>
-        int.TryParse(s, System.Globalization.NumberStyles.Integer,
-            System.Globalization.CultureInfo.InvariantCulture, out var v)
-            ? v
-            : fallback;
-
-    public static string ToHelpText() =>
-        "press Ctrl+A — нажать сочетание\n" +
-        "down Shift — зажать\n" +
-        "up Shift — отпустить\n" +
-        "delay 100 — пауза, мс\n" +
-        "text Привет — напечатать текст\n" +
-        "wheel down 2 — прокрутить колесо\n" +
-        "move 10 -5 — сдвинуть курсор (x y)\n" +
-        "cursor right 10 — сдвинуть курсор вправо\n" +
-        "browser page +1 — следующая страница (?page=N)\n" +
-        "browser page -1 — предыдущая страница\n" +
-        "browser page 287 — конкретная страница\n" +
-        "browser set_param \"page\" \"287\" — параметр URL\n" +
-        "browser change_param \"page\" +1 — изменить числовой параметр\n" +
-        "browser set_param_url 2 \"1366540\" — 2-й сегмент пути\n" +
-        "browser change_param_url 2 +1 — изменить числовой сегмент\n" +
-        "browser tab new \"https://…\" 2 — новая вкладка на позиции 2\n" +
-        "browser tab close 2 — закрыть 2-ю вкладку\n" +
-        "browser update — обновить страницу (F5)\n" +
-        "browser goto \"https://…\" — открыть URL\n" +
-        "press mouse:left — клик мышью";
-}
-
 public sealed class ActionExecutor : IDisposable
 {
     private readonly Dictionary<string, CancellationTokenSource> _running = new();
@@ -286,6 +17,9 @@ public sealed class ActionExecutor : IDisposable
         _windowProvider = windowProvider;
 
     public event Action<string>? ProfileSwitchRequested;
+    public event Action<int>? ProfileCycleRequested;
+    public event Action<int>? LayerCycleRequested;
+    public event Action<int>? LayerSetRequested;
     public event Action<string>? Error;
 
     public void ExecuteStart(string bindingKey, ActionSpec action)
@@ -424,8 +158,28 @@ public sealed class ActionExecutor : IDisposable
 
     private async Task RunMacroAsync(ActionSpec action, CancellationToken token)
     {
-        var steps = MacroScript.Parse(action.Script);
-        ProfileStore.Log($"[macro] {steps.Count} шагов: {action.Script?.Replace("\n", " | ")}");
+        var script = action.Script;
+        if (!string.IsNullOrWhiteSpace(action.ScriptPath))
+        {
+            if (File.Exists(action.ScriptPath))
+            {
+                try
+                {
+                    script = File.ReadAllText(action.ScriptPath);
+                }
+                catch (Exception ex)
+                {
+                    ReportError("Не удалось прочитать макрос: " + ex.Message);
+                }
+            }
+            else
+            {
+                ReportError("Файл макроса не найден: " + action.ScriptPath);
+            }
+        }
+
+        var steps = MacroScript.Parse(script);
+        ProfileStore.Log($"[macro] {steps.Count} шагов: {script?.Replace("\n", " | ")}");
         if (steps.Count == 0) return;
         InputSender.ReleaseHeldModifiers();
 
@@ -434,89 +188,283 @@ public sealed class ActionExecutor : IDisposable
         else repeats = Math.Max(1, repeats);
 
         for (int r = 0; r < repeats && !token.IsCancellationRequested; r++)
+            await RunStepsAsync(steps, token, 0);
+    }
+
+    private async Task RunStepsAsync(List<MacroStep> steps, CancellationToken token, int depth)
+    {
+        if (depth > 12) return;
+
+        foreach (var step in steps)
         {
-            foreach (var step in steps)
+            token.ThrowIfCancellationRequested();
+
+            switch (step.Kind)
             {
-                token.ThrowIfCancellationRequested();
-                switch (step.Kind)
+                case "repeat":
+                    for (int i = 0; i < step.Number; i++)
+                        await RunStepsAsync(step.Body ?? new List<MacroStep>(), token, depth + 1);
+                    break;
+
+                case "if":
                 {
-                    case "delay":
-                        await Task.Delay(step.Number, token);
-                        break;
-                    case "text":
-                        await TypeTextAsync(step.Text ?? "", token);
-                        break;
-                    case "wheel":
-                        InputSender.Wheel(step.Number * (step.Key == "down" ? -1 : 1),
-                            step.Key is "left" or "right");
-                        break;
-                    case "move":
-                        InputSender.MoveRelative(step.Modifiers1, step.Modifiers2);
-                        break;
-                    case "browser":
+                    bool result = false;
+                    var window = _windowProvider?.Invoke();
+                    if (!string.IsNullOrWhiteSpace(step.Text) && window is not null)
                     {
-                        var window = _windowProvider?.Invoke();
-                        string error = "";
-                        bool ok = step.Key switch
-                        {
-                            "page" => BrowserMacro.TryChangePage(window, step.Number, out error),
-                            "page-set" => BrowserMacro.TrySetPage(window, step.Number, out error),
-                            "goto" => BrowserMacro.TryGoTo(window, step.Text ?? "", out error),
-                            "set_param" => BrowserMacro.TrySetQuery(window,
-                                step.Text ?? "", step.Text2 ?? "", out error),
-                            "change_param" => BrowserMacro.TryChangeQuery(window,
-                                step.Text ?? "", step.Number, out error),
-                            "set_param_url" => BrowserMacro.TrySetPath(window,
-                                step.Number, step.Text ?? "", out error),
-                            "change_param_url" => BrowserMacro.TryChangePath(window,
-                                step.Number, step.Modifiers1, out error),
-                            "tab-new" => BrowserMacro.TryNewTab(window,
-                                step.Text, step.Number, out error),
-                            "tab-close" => BrowserMacro.TryCloseTab(window,
-                                step.Number, out error),
-                            "update" => BrowserMacro.TryReload(window, out error),
-                            _ => false
-                        };
-                        if (!ok)
-                        {
-                            var message = string.IsNullOrWhiteSpace(error)
-                                ? "Неизвестная или неподдерживаемая команда browser."
-                                : error;
-                            Error?.Invoke(message);
-                            ProfileStore.Log("[browser] " + message);
-                        }
-                        break;
+                        if (ExpressionEvaluator.TryEvaluate(step.Text, window, out var ok, out var error))
+                            result = ok;
+                        else
+                            ReportError("Условие: " + error);
                     }
-                    case "press":
-                        if (step.Key is null) break;
-                        SendCombo(step.Key, step.Modifiers1, step.Modifiers2, true);
-                        break;
-                    case "down":
-                        if (step.Key is null) break;
-                        SendCombo(step.Key, step.Modifiers1, step.Modifiers2, false);
-                        break;
-                    case "up":
-                        if (step.Key is null) break;
-                        SendCombo(step.Key, step.Modifiers1, step.Modifiers2, false, true);
-                        break;
-                    case "pressmouse":
-                        InputSender.MouseButton(step.Key!, true);
-                        InputSender.MouseButton(step.Key!, false);
-                        break;
-                    case "downmouse":
-                        InputSender.MouseButton(step.Key!, true);
-                        break;
-                    case "upmouse":
-                        InputSender.MouseButton(step.Key!, false);
-                        break;
+
+                    await RunStepsAsync(result
+                        ? step.Body ?? new List<MacroStep>()
+                        : step.ElseBody ?? new List<MacroStep>(), token, depth + 1);
+                    break;
                 }
 
-                // Give the target application time to process each step; vendor
-                // macros are played with a short pause between key events.
-                if (step.Kind != "delay")
-                    await Task.Delay(20, token);
+                case "unknown":
+                    ReportError("Неизвестный блок: " + (step.Text ?? ""));
+                    break;
+
+                default:
+                    await RunStepAsync(step, token);
+                    if (step.Kind != "delay")
+                        await Task.Delay(20, token);
+                    break;
             }
         }
+    }
+
+    private async Task RunStepAsync(MacroStep step, CancellationToken token)
+    {
+        switch (step.Kind)
+        {
+            case "delay":
+                await Task.Delay(step.Number, token);
+                break;
+
+            case "text":
+                await TypeTextAsync(ExpandText(step.Text ?? ""), token);
+                break;
+
+            case "wheel":
+                InputSender.Wheel(step.Number * (step.Key == "down" ? -1 : 1),
+                    step.Key is "left" or "right");
+                break;
+
+            case "move":
+                InputSender.MoveRelative(step.Modifiers1, step.Modifiers2);
+                break;
+
+            case "browser":
+            {
+                var window = _windowProvider?.Invoke();
+                string error = "";
+                bool ok = step.Key switch
+                {
+                    "page" => BrowserMacro.TryChangePage(window, step.Number, out error),
+                    "page-set" => BrowserMacro.TrySetPage(window, step.Number, out error),
+                    "goto" => BrowserMacro.TryGoTo(window, ExpandText(step.Text ?? ""), out error),
+                    "set_param" => BrowserMacro.TrySetQuery(window,
+                        ExpandText(step.Text ?? ""), ExpandText(step.Text2 ?? ""), out error),
+                    "change_param" => BrowserMacro.TryChangeQuery(window,
+                        step.Text ?? "", step.Number, out error),
+                    "set_param_url" => BrowserMacro.TrySetPath(window,
+                        step.Number, ExpandText(step.Text ?? ""), out error),
+                    "change_param_url" => BrowserMacro.TryChangePath(window,
+                        step.Number, step.Modifiers1, out error),
+                    "tab-new" => BrowserMacro.TryNewTab(window,
+                        step.Text, step.Number, step.Modifiers1 != 0, out error),
+                    "tab-close" => BrowserMacro.TryCloseTab(window,
+                        step.Number, out error),
+                    "tab-select" => BrowserMacro.TrySelectTab(window,
+                        step.Number, out error),
+                    "open-new-tab" => BrowserMacro.TryOpenInNewTab(window,
+                        step.Text, out error),
+                    "back" => BrowserMacro.TryGoBack(window, out error),
+                    "forward" => BrowserMacro.TryGoForward(window, out error),
+                    "stop" => BrowserMacro.TryStop(window, out error),
+                    "reload-hard" => BrowserMacro.TryReloadHard(window, out error),
+                    "tab-next" => BrowserMacro.TryNextTab(window, out error),
+                    "tab-prev" => BrowserMacro.TryPrevTab(window, out error),
+                    "tab-reopen" => BrowserMacro.TryReopenTab(window, out error),
+                    "zoom-in" => BrowserMacro.TryZoom(window, 1, out error),
+                    "zoom-out" => BrowserMacro.TryZoom(window, -1, out error),
+                    "zoom-reset" => BrowserMacro.TryZoom(window, 0, out error),
+                    "find" => BrowserMacro.TryFind(window,
+                        ExpandText(step.Text ?? ""), out error),
+                    "search" => BrowserMacro.TrySearch(window,
+                        ExpandText(step.Text ?? ""), out error),
+                    "copy-url" => BrowserMacro.TryCopyUrl(window, out error),
+                    "scroll-top" => BrowserMacro.TryScroll(window, "top", out error),
+                    "scroll-bottom" => BrowserMacro.TryScroll(window, "bottom", out error),
+                    "update" => BrowserMacro.TryReload(window, out error),
+                    _ => false
+                };
+                if (!ok)
+                {
+                    ReportError(string.IsNullOrWhiteSpace(error)
+                        ? "Неизвестная или неподдерживаемая команда browser."
+                        : error);
+                }
+                break;
+            }
+
+            case "clipboard-set":
+                ReportIfFailed(SystemMacro.TrySetClipboard(
+                    ExpandText(step.Text ?? ""), out var clipError), clipError);
+                break;
+
+            case "clipboard-paste":
+                ReportIfFailed(SystemMacro.TryPasteClipboard(out var pasteError), pasteError);
+                break;
+
+            case "run":
+                ReportIfFailed(SystemMacro.TryRun(
+                    ExpandText(step.Text ?? ""), ExpandText(step.Text2 ?? ""), out var runError), runError);
+                break;
+
+            case "open":
+                ReportIfFailed(SystemMacro.TryOpen(ExpandText(step.Text ?? ""), out var openError), openError);
+                break;
+
+            case "window":
+            {
+                string error;
+                bool ok = step.Key == "activate"
+                    ? SystemMacro.TryActivateWindow(ExpandText(step.Text ?? ""), out error)
+                    : SystemMacro.TryWindowState(step.Key ?? "", out error);
+                ReportIfFailed(ok, error);
+                break;
+            }
+
+            case "volume":
+                ReportIfFailed(SystemMacro.TryVolume(step.Number, out var volumeError), volumeError);
+                break;
+
+            case "mute":
+                ReportIfFailed(SystemMacro.TryMute(out var muteError), muteError);
+                break;
+
+            case "media":
+                ReportIfFailed(SystemMacro.TryMedia(step.Text ?? "", out var mediaError), mediaError);
+                break;
+
+            case "screenshot":
+                ReportIfFailed(SystemMacro.TryScreenshot(out var shotError), shotError);
+                break;
+
+            case "lock":
+                ReportIfFailed(SystemMacro.TryLock(out var lockError), lockError);
+                break;
+
+            case "sleep":
+                ReportIfFailed(SystemMacro.TrySleep(out var sleepError), sleepError);
+                break;
+
+            case "profile-next":
+                ProfileCycleRequested?.Invoke(1);
+                break;
+
+            case "profile-prev":
+                ProfileCycleRequested?.Invoke(-1);
+                break;
+
+            case "profile-set":
+                if (!string.IsNullOrWhiteSpace(step.Text))
+                    ProfileSwitchRequested?.Invoke(step.Text);
+                break;
+
+            case "layer-next":
+                LayerCycleRequested?.Invoke(1);
+                break;
+
+            case "layer-prev":
+                LayerCycleRequested?.Invoke(-1);
+                break;
+
+            case "layer-set":
+                LayerSetRequested?.Invoke(step.Number);
+                break;
+
+            case "press":
+                if (step.Key is null) break;
+                SendCombo(step.Key, step.Modifiers1, step.Modifiers2, true);
+                break;
+
+            case "down":
+                if (step.Key is null) break;
+                SendCombo(step.Key, step.Modifiers1, step.Modifiers2, false);
+                break;
+
+            case "up":
+                if (step.Key is null) break;
+                SendCombo(step.Key, step.Modifiers1, step.Modifiers2, false, true);
+                break;
+
+            case "pressmouse":
+                InputSender.MouseButton(step.Key!, true);
+                InputSender.MouseButton(step.Key!, false);
+                break;
+
+            case "downmouse":
+                InputSender.MouseButton(step.Key!, true);
+                break;
+
+            case "upmouse":
+                InputSender.MouseButton(step.Key!, false);
+                break;
+        }
+    }
+
+    private string ExpandText(string text)
+    {
+        if (string.IsNullOrEmpty(text) || !text.Contains('{')) return text;
+
+        var window = _windowProvider?.Invoke();
+        var url = window?.Url ?? "";
+        if (string.IsNullOrWhiteSpace(url) && window is not null &&
+            BrowserUrlReader.IsBrowser(window.ProcessName))
+        {
+            url = BrowserUrlReader.TryGetUrl(window) ?? "";
+        }
+
+        return Regex.Replace(text, @"\{([^{}]+)\}", match =>
+        {
+            var key = match.Groups[1].Value.Trim();
+            if (key.Equals("clipboard", StringComparison.OrdinalIgnoreCase))
+                return SystemMacro.GetClipboardText();
+            if (key.Equals("date", StringComparison.OrdinalIgnoreCase))
+                return DateTime.Now.ToString("yyyy-MM-dd");
+            if (key.Equals("time", StringComparison.OrdinalIgnoreCase))
+                return DateTime.Now.ToString("HH:mm:ss");
+            if (key.Equals("url", StringComparison.OrdinalIgnoreCase))
+                return url;
+            if (key.Equals("title", StringComparison.OrdinalIgnoreCase))
+                return window?.Title ?? "";
+            if (key.Equals("process", StringComparison.OrdinalIgnoreCase))
+                return window?.ProcessName ?? "";
+            if (key.StartsWith("param:", StringComparison.OrdinalIgnoreCase) &&
+                SystemMacro.TryGetQueryParam(url, key[6..], out var value))
+            {
+                return value;
+            }
+            return match.Value;
+        });
+    }
+
+    private void ReportIfFailed(bool ok, string error)
+    {
+        if (!ok)
+            ReportError(string.IsNullOrWhiteSpace(error) ? "Команда не выполнена." : error);
+    }
+
+    private void ReportError(string message)
+    {
+        Error?.Invoke(message);
+        ProfileStore.Log("[macro] " + message);
     }
 
     private static void SendCombo(string keyText, int mod1, int mod2, bool withUp, bool onlyUp = false)

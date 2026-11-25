@@ -1,0 +1,96 @@
+{
+  "name": "MouseMackros Macro",
+  "scopeName": "source.mousemacros",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#placeholders" },
+    { "include": "#blocks" },
+    { "include": "#commands" },
+    { "include": "#operators" },
+    { "include": "#numbers" },
+    { "include": "#braces" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.mousemacros",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.mousemacros",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            { "name": "constant.character.escape.mousemacros", "match": "\\\\." }
+          ]
+        },
+        {
+          "name": "string.quoted.single.mousemacros",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            { "name": "constant.character.escape.mousemacros", "match": "\\\\." }
+          ]
+        }
+      ]
+    },
+    "placeholders": {
+      "patterns": [
+        {
+          "name": "variable.other.mousemacros",
+          "match": "\\{(clipboard|date|time|url|title|process|param:[^{}]+)\\}"
+        }
+      ]
+    },
+    "blocks": {
+      "patterns": [
+        {
+          "name": "keyword.control.mousemacros",
+          "match": "\\b(repeat|if|else)\\b"
+        }
+      ]
+    },
+    "commands": {
+      "patterns": [
+        {
+          "name": "keyword.control.mousemacros",
+          "match": "\\b(press|down|up|delay|wait|text|type|wheel|move|cursor|browser|clipboard|run|open|window|volume|mute|media|screenshot|lock|sleep|profile|layer)\\b"
+        },
+        {
+          "name": "support.function.mousemacros",
+          "match": "\\b(goto|page|set_param|change_param|set_param_url|change_param_url|tab|select|open_in_new_tab|back|forward|stop|reload|update|zoom|find|search|copy_url|scroll|new|close|next|prev|previous|reopen|background|set|paste|clear|activate|minimize|maximize|restore|play|pause)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.logical.mousemacros",
+          "match": "&&|\\|\\||!=|==|~=|!|\\b(contains|startsWith|endsWith)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.mousemacros",
+          "match": "[+-]?\\b\\d+\\b"
+        }
+      ]
+    },
+    "braces": {
+      "patterns": [
+        {
+          "name": "punctuation.section.block.mousemacros",
+          "match": "[{}]"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,212 @@
+{
+  "Нажать сочетание": {
+    "prefix": "press",
+    "body": ["press ${1:Ctrl+A}"],
+    "description": "Нажать сочетание клавиш"
+  },
+  "Зажать клавишу": {
+    "prefix": "down",
+    "body": ["down ${1:Shift}"],
+    "description": "Зажать клавишу или модификатор"
+  },
+  "Отпустить клавишу": {
+    "prefix": "up",
+    "body": ["up ${1:Shift}"],
+    "description": "Отпустить клавишу или модификатор"
+  },
+  "Пауза": {
+    "prefix": "delay",
+    "body": ["delay ${1:100}"],
+    "description": "Пауза в миллисекундах"
+  },
+  "Текст": {
+    "prefix": "text",
+    "body": ["text ${1:Привет}"],
+    "description": "Напечатать текст"
+  },
+  "Прокрутка": {
+    "prefix": "wheel",
+    "body": ["wheel ${1:down} ${2:2}"],
+    "description": "Прокрутить колесо"
+  },
+  "Клик мышью": {
+    "prefix": "mclick",
+    "body": ["press mouse:${1:left}"],
+    "description": "Клик мышью"
+  },
+  "Повторить блок": {
+    "prefix": "repeat",
+    "body": ["repeat ${1:5} {", "\t$0", "}"],
+    "description": "Повторить команды"
+  },
+  "Условие": {
+    "prefix": "if",
+    "body": ["if ${1:browser.url contains \"nexus\"} {", "\t$0", "}"],
+    "description": "Выполнить команды при условии"
+  },
+  "Условие с else": {
+    "prefix": "ifelse",
+    "body": ["if ${1:browser.url contains \"nexus\"} {", "\t$2", "} else {", "\t$3", "}"],
+    "description": "Условие с альтернативной веткой"
+  },
+  "Страница ?page=": {
+    "prefix": "bpage",
+    "body": ["browser page ${1:+1}"],
+    "description": "Следующая/предыдущая страница в ?page="
+  },
+  "Параметр URL": {
+    "prefix": "bsetparam",
+    "body": ["browser set_param \"${1:page}\" \"${2:287}\""],
+    "description": "Задать параметр URL"
+  },
+  "Изменить параметр URL": {
+    "prefix": "bchangeparam",
+    "body": ["browser change_param \"${1:page}\" ${2:+1}"],
+    "description": "Изменить числовой параметр URL"
+  },
+  "Сегмент пути URL": {
+    "prefix": "bsetpath",
+    "body": ["browser set_param_url ${1:2} \"${2:999}\""],
+    "description": "Заменить сегмент пути"
+  },
+  "Изменить сегмент пути": {
+    "prefix": "bchangepath",
+    "body": ["browser change_param_url ${1:2} ${2:+1}"],
+    "description": "Изменить числовой сегмент пути"
+  },
+  "Открыть URL": {
+    "prefix": "bgoto",
+    "body": ["browser goto \"${1:https://example.com}\""],
+    "description": "Открыть URL"
+  },
+  "Новая вкладка": {
+    "prefix": "btabnew",
+    "body": ["browser tab new \"${1:https://example.com}\" ${2:2}"],
+    "description": "Открыть новую вкладку"
+  },
+  "Новая фоновая вкладка": {
+    "prefix": "btabbg",
+    "body": ["browser tab new \"${1:https://example.com}\" ${2:2} background"],
+    "description": "Открыть вкладку в фоне"
+  },
+  "Закрыть вкладку": {
+    "prefix": "btabclose",
+    "body": ["browser tab close ${1:2}"],
+    "description": "Закрыть вкладку"
+  },
+  "Переключить вкладку": {
+    "prefix": "bselect",
+    "body": ["browser select ${1:3}"],
+    "description": "Перейти на вкладку"
+  },
+  "Открыть в новой вкладке": {
+    "prefix": "bopennew",
+    "body": ["browser open_in_new_tab \"${1:https://example.com}\""],
+    "description": "Открыть URL в новой вкладке"
+  },
+  "Назад": {
+    "prefix": "bback",
+    "body": ["browser back"],
+    "description": "Назад по истории"
+  },
+  "Вперёд": {
+    "prefix": "bforward",
+    "body": ["browser forward"],
+    "description": "Вперёд по истории"
+  },
+  "Обновить": {
+    "prefix": "bupdate",
+    "body": ["browser update"],
+    "description": "Обновить страницу"
+  },
+  "Жёсткое обновление": {
+    "prefix": "breloadhard",
+    "body": ["browser reload hard"],
+    "description": "Обновить без кэша"
+  },
+  "Масштаб": {
+    "prefix": "bzoom",
+    "body": ["browser zoom ${1:+1}"],
+    "description": "Изменить масштаб страницы"
+  },
+  "Поиск на странице": {
+    "prefix": "bfind",
+    "body": ["browser find \"${1:текст}\""],
+    "description": "Поиск на странице"
+  },
+  "Поиск в браузере": {
+    "prefix": "bsearch",
+    "body": ["browser search \"${1:запрос}\""],
+    "description": "Поиск в браузере"
+  },
+  "Скопировать адрес": {
+    "prefix": "bcopyurl",
+    "body": ["browser copy_url"],
+    "description": "Скопировать текущий URL"
+  },
+  "В начало страницы": {
+    "prefix": "btop",
+    "body": ["browser scroll top"],
+    "description": "Прокрутить в начало"
+  },
+  "В конец страницы": {
+    "prefix": "bbottom",
+    "body": ["browser scroll bottom"],
+    "description": "Прокрутить в конец"
+  },
+  "Буфер обмена": {
+    "prefix": "clipset",
+    "body": ["clipboard set \"${1:текст}\""],
+    "description": "Записать текст в буфер обмена"
+  },
+  "Вставить из буфера": {
+    "prefix": "clippaste",
+    "body": ["clipboard paste"],
+    "description": "Вставить из буфера обмена"
+  },
+  "Запустить программу": {
+    "prefix": "run",
+    "body": ["run \"${1:notepad.exe}\""],
+    "description": "Запустить программу"
+  },
+  "Открыть путь": {
+    "prefix": "open",
+    "body": ["open \"${1:D:\\folder}\""],
+    "description": "Открыть файл, папку или ссылку"
+  },
+  "Активировать окно": {
+    "prefix": "wactivate",
+    "body": ["window activate \"${1:Заголовок}\""],
+    "description": "Переключиться на окно"
+  },
+  "Свернуть окно": {
+    "prefix": "wmin",
+    "body": ["window minimize"],
+    "description": "Свернуть активное окно"
+  },
+  "Закрыть окно": {
+    "prefix": "wclose",
+    "body": ["window close"],
+    "description": "Закрыть активное окно"
+  },
+  "Громкость": {
+    "prefix": "volume",
+    "body": ["volume ${1:+5}"],
+    "description": "Изменить громкость"
+  },
+  "Медиа": {
+    "prefix": "media",
+    "body": ["media ${1:next}"],
+    "description": "Медиа-клавиша"
+  },
+  "Профиль": {
+    "prefix": "profile",
+    "body": ["profile ${1:next}"],
+    "description": "Переключить профиль"
+  },
+  "Слой": {
+    "prefix": "layer",
+    "body": ["layer ${1:next}"],
+    "description": "Переключить ручной слой"
+  }
+}

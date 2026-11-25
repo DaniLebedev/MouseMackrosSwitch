@@ -1,0 +1,46 @@
+{
+  "name": "mouse-macros",
+  "displayName": "MouseMackros Macro",
+  "description": "Подсветка, автодополнение и проверка синтаксиса макросов MouseMackros",
+  "version": "0.1.0",
+  "publisher": "mousemackros",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "activationEvents": [
+    "onLanguage:mousemacros"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "mousemacros",
+        "aliases": [
+          "MouseMackros Macro",
+          "mousemacros"
+        ],
+        "extensions": [
+          ".macro"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mousemacros",
+        "scopeName": "source.mousemacros",
+        "path": "./syntaxes/mousemacros.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "mousemacros",
+        "path": "./snippets/mousemacros.json"
+      }
+    ]
+  }
+}

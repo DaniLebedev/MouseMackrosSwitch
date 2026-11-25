@@ -31,9 +31,8 @@
             <Grid Grid.Row="1" Margin="20,16,20,8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0" Margin="0,0,0,10">
@@ -56,18 +55,23 @@
                     </StackPanel>
                 </Grid>
 
-                <TextBox Grid.Row="1" x:Name="ScriptBox" AcceptsReturn="True" TextWrapping="NoWrap"
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <Button Style="{StaticResource GhostButton}" Content="Загрузить…"
+                            Click="LoadMacro_Click" />
+                    <Button Style="{StaticResource GhostButton}" Content="Сохранить как…"
+                            Margin="8,0,0,0" Click="SaveMacro_Click" />
+                    <Button Style="{StaticResource GhostButton}" Content="Открыть в VS Code"
+                            Margin="8,0,0,0" Click="OpenInVsCode_Click" />
+                    <Button Style="{StaticResource GhostButton}" Content="Подсказки"
+                            Margin="8,0,0,0" Click="Help_Click" />
+                    <TextBlock x:Name="FileLabel" Style="{StaticResource MutedText}" FontSize="11"
+                               VerticalAlignment="Center" Margin="12,0,0,0"
+                               TextTrimming="CharacterEllipsis" MaxWidth="240" />
+                </StackPanel>
+
+                <TextBox Grid.Row="2" x:Name="ScriptBox" AcceptsReturn="True" TextWrapping="NoWrap"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                          FontFamily="Consolas" FontSize="12.5" Padding="8" />
-                <ScrollViewer Grid.Row="2" MaxHeight="120" VerticalScrollBarVisibility="Auto"
-                              Margin="0,8,0,0">
-                    <TextBlock Text="{Binding HelpText, RelativeSource={RelativeSource AncestorType=Window}}"
-                               Style="{StaticResource MutedText}" FontSize="11"
-                               TextWrapping="Wrap" />
-                </ScrollViewer>
-                <TextBlock Grid.Row="3" Text="Каждая строка — шаг. Для фарма: press mouse:right + delay 5000, режим «Вкл / выкл»."
-                           Style="{StaticResource MutedText}" FontSize="11" Margin="0,6,0,0"
-                           TextWrapping="Wrap" />
             </Grid>
 
             <Border Grid.Row="2" Background="#16191F" BorderBrush="{StaticResource BorderBrush}"

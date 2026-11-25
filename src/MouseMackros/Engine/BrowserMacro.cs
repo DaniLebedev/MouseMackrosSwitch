@@ -133,7 +133,8 @@ public static class BrowserMacro
         return true;
     }
 
-    public static bool TryNewTab(WindowInfo? window, string? url, int position, out string error)
+    public static bool TryNewTab(WindowInfo? window, string? url, int position,
+        bool background, out string error)
     {
         if (!TryBrowserWindow(window, out error)) return false;
 
@@ -157,6 +158,153 @@ public static class BrowserMacro
         if (!string.IsNullOrWhiteSpace(url))
             Navigate(url.Trim());
 
+        if (background)
+        {
+            // Ctrl+T already switched to the new tab; go back to the tab
+            // that was active before. The new tab stays open in the background.
+            InputSender.Combo(new[] { NativeMethods.VK_CONTROL, NativeMethods.VK_SHIFT }, 0x09);
+            Thread.Sleep(80);
+        }
+
+        return true;
+    }
+
+    public static bool TrySelectTab(WindowInfo? window, int position, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        if (position < 1)
+        {
+            error = "Номер вкладки должен быть больше нуля.";
+            return false;
+        }
+
+        int key = position <= 8 ? 0x30 + position : 0x39;
+        InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, key);
+        Thread.Sleep(80);
+        return true;
+    }
+
+    public static bool TryOpenInNewTab(WindowInfo? window, string? url, out string error)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            if (!TryCurrentUrl(window, out var current, out error)) return false;
+            url = current;
+        }
+
+        return TryNewTab(window, url, 0, false, out error);
+    }
+
+    public static bool TryGoBack(WindowInfo? window, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        InputSender.Combo(new[] { NativeMethods.VK_MENU }, 0x25);
+        Thread.Sleep(80);
+        return true;
+    }
+
+    public static bool TryGoForward(WindowInfo? window, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        InputSender.Combo(new[] { NativeMethods.VK_MENU }, 0x27);
+        Thread.Sleep(80);
+        return true;
+    }
+
+    public static bool TryStop(WindowInfo? window, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        InputSender.Combo(Array.Empty<int>(), 0x1B);
+        Thread.Sleep(50);
+        return true;
+    }
+
+    public static bool TryReloadHard(WindowInfo? window, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, 0x74);
+        Thread.Sleep(80);
+        return true;
+    }
+
+    public static bool TryNextTab(WindowInfo? window, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, 0x09);
+        Thread.Sleep(60);
+        return true;
+    }
+
+    public static bool TryPrevTab(WindowInfo? window, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        InputSender.Combo(new[] { NativeMethods.VK_CONTROL, NativeMethods.VK_SHIFT }, 0x09);
+        Thread.Sleep(60);
+        return true;
+    }
+
+    public static bool TryReopenTab(WindowInfo? window, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        InputSender.Combo(new[] { NativeMethods.VK_CONTROL, NativeMethods.VK_SHIFT }, 0x54);
+        Thread.Sleep(80);
+        return true;
+    }
+
+    public static bool TryZoom(WindowInfo? window, int direction, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        int key = direction > 0 ? 0xBB : direction < 0 ? 0xBD : 0x30;
+        InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, key);
+        Thread.Sleep(50);
+        return true;
+    }
+
+    public static bool TryFind(WindowInfo? window, string text, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, 0x46);
+        Thread.Sleep(80);
+        if (!string.IsNullOrEmpty(text))
+        {
+            TypeText(text);
+            InputSender.KeyDown(0x0D);
+            InputSender.KeyUp(0x0D);
+            Thread.Sleep(80);
+        }
+        return true;
+    }
+
+    public static bool TrySearch(WindowInfo? window, string query, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            error = "Поисковый запрос пуст.";
+            return false;
+        }
+
+        InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, 0x4C);
+        Thread.Sleep(80);
+        TypeText(query);
+        InputSender.KeyDown(0x0D);
+        InputSender.KeyUp(0x0D);
+        Thread.Sleep(120);
+        return true;
+    }
+
+    public static bool TryCopyUrl(WindowInfo? window, out string error)
+    {
+        if (!TryCurrentUrl(window, out var url, out error)) return false;
+        return SystemMacro.TrySetClipboard(url, out error);
+    }
+
+    public static bool TryScroll(WindowInfo? window, string direction, out string error)
+    {
+        if (!TryBrowserWindow(window, out error)) return false;
+        int key = direction.Equals("bottom", StringComparison.OrdinalIgnoreCase) ? 0x23 : 0x24;
+        InputSender.Combo(Array.Empty<int>(), key);
+        Thread.Sleep(50);
         return true;
     }
 
@@ -372,15 +520,20 @@ public static class BrowserMacro
         InputSender.Combo(new[] { NativeMethods.VK_CONTROL }, 0x4C);
         Thread.Sleep(90);
 
-        foreach (var ch in url)
+        TypeText(url);
+
+        InputSender.KeyDown(0x0D);
+        InputSender.KeyUp(0x0D);
+        Thread.Sleep(150);
+    }
+
+    private static void TypeText(string text)
+    {
+        foreach (var ch in text)
         {
             InputSender.SendUnicode(ch, true);
             InputSender.SendUnicode(ch, false);
             Thread.Sleep(2);
         }
-
-        InputSender.KeyDown(0x0D);
-        InputSender.KeyUp(0x0D);
-        Thread.Sleep(150);
     }
 }

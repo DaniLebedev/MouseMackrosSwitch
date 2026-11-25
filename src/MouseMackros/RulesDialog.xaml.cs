@@ -18,6 +18,14 @@ public partial class RulesDialog : Window
         ClassBox.Text = profile.Match.WindowClass ?? "";
         ExpressionBox.Text = profile.Match.Expression ?? "";
         PriorityBox.Text = profile.Match.Priority.ToString();
+
+        bool hasAdvanced = !string.IsNullOrWhiteSpace(profile.Match.TitleContains) ||
+                           !string.IsNullOrWhiteSpace(profile.Match.WindowClass);
+        if (hasAdvanced)
+        {
+            AdvancedCheck.IsChecked = true;
+            AdvancedPanel.Visibility = Visibility.Visible;
+        }
     }
 
     public bool Saved { get; private set; }
@@ -51,4 +59,44 @@ public partial class RulesDialog : Window
         DialogResult = false;
         Close();
     }
+
+    private void Advanced_Changed(object sender, RoutedEventArgs e)
+    {
+        AdvancedPanel.Visibility = AdvancedCheck.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void Help_Click(object sender, RoutedEventArgs e) =>
+        HelpWindow.ShowHelp(this, "Подсказки по условиям", HelpText);
+
+    private const string HelpText =
+        "УСЛОВИЕ (МИНИ-ЯЗЫК)\n\n" +
+        "Поля:\n" +
+        "  browser.url  или  url   — адрес страницы\n" +
+        "  title                   — заголовок окна\n" +
+        "  process  или  app       — имя процесса без .exe\n" +
+        "  class                   — класс окна\n\n" +
+        "Операторы:\n" +
+        "  contains \"…\"        содержит подстроку\n" +
+        "  startsWith \"…\"      начинается с\n" +
+        "  endsWith \"…\"        заканчивается на\n" +
+        "  ==  /  !=             равно / не равно (поддерживает * и ?)\n" +
+        "  ~= \"regex\"           регулярное выражение\n" +
+        "  &&  /  ||  /  !       И / ИЛИ / НЕ, скобки\n\n" +
+        "Примеры:\n" +
+        "  browser.url contains \"nexusmods.com\"\n" +
+        "  process == \"firefox\" && browser.url startsWith \"https://\"\n" +
+        "  title contains \"YouTube\"\n" +
+        "  class == \"Chrome_WidgetWin_1\"\n" +
+        "  browser.url ~= \"page=\\d+\"\n\n" +
+        "ПРОГРАММЫ\n" +
+        "Список процессов работает вместе с условием: профиль включится,\n" +
+        "только если совпали и процесс, и условие.\n\n" +
+        "ЗАГОЛОВОК И КЛАСС ОКНА\n" +
+        "Это старые простые фильтры. Они не обязательны: то же самое можно\n" +
+        "записать в условии через title contains \"…\" и class == \"…\".\n\n" +
+        "ПРИОРИТЕТ\n" +
+        "Если подходят несколько профилей, побеждает более глубокий\n" +
+        "подпрофиль, а при равной глубине — профиль с большим приоритетом.";
 }

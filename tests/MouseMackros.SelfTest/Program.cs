@@ -123,6 +123,11 @@ Check("URL: поисковый запрос не URL",
     BrowserUrlReader.NormalizeUrl("nexusmods") is null);
 Check("URL: схема сохраняется",
     BrowserUrlReader.NormalizeUrl("http://example.com/a") == "http://example.com/a");
+var normalizedNexus = BrowserUrlReader.NormalizeUrl("www.nexusmods.com/mods?page=2") ?? "";
+Check("URL: условие с https после Firefox",
+    ExpressionEvaluator.TryEvaluate("browser.url contains \"https://www.nexusmods.com\"",
+        WinUrl("firefox", "Mods", normalizedNexus), out var e6, out _) && e6,
+    normalizedNexus);
 
 var urlChild = new Profile
 {
@@ -294,6 +299,9 @@ Check("browser: set path",
 Check("browser: change path",
     BrowserMacro.TryChangePathValue("https://steamcommunity.com/app/1366540", 2, 1,
         out var p2, out _) && p2 == "https://steamcommunity.com/app/1366541", p2);
+Check("система: чтение параметра URL",
+    SystemMacro.TryGetQueryParam("https://x.test/a?page=286&sort=mods", "page", out var paramValue) &&
+    paramValue == "286", paramValue);
 
 var extended = MacroScript.Parse("""
     browser set_param "page" "287"
@@ -316,6 +324,116 @@ Check("макрос: tab new", extended[4].Key == "tab-new" &&
     extended[4].Number == 2 && extended[4].Text == "https://x.test");
 Check("макрос: tab close", extended[5].Key == "tab-close" && extended[5].Number == 2);
 Check("макрос: update", extended[6].Key == "update");
+
+var cheapBrowser = MacroScript.Parse("""
+    browser back
+    browser forward
+    browser stop
+    browser reload hard
+    browser tab next
+    browser tab prev
+    browser tab reopen
+    browser zoom +1
+    browser zoom -1
+    browser zoom reset
+    browser find "hello"
+    browser search "nexus mods"
+    browser copy_url
+    browser scroll top
+    browser scroll bottom
+    browser select 3
+    browser open_in_new_tab "https://x.test"
+    browser tab new "https://x.test" 2 background
+    """);
+Check("browser: back/forward", cheapBrowser[0].Key == "back" && cheapBrowser[1].Key == "forward");
+Check("browser: stop", cheapBrowser[2].Key == "stop");
+Check("browser: reload hard", cheapBrowser[3].Key == "reload-hard");
+Check("browser: tab next/prev/reopen", cheapBrowser[4].Key == "tab-next" &&
+    cheapBrowser[5].Key == "tab-prev" && cheapBrowser[6].Key == "tab-reopen");
+Check("browser: zoom", cheapBrowser[7].Key == "zoom-in" &&
+    cheapBrowser[8].Key == "zoom-out" && cheapBrowser[9].Key == "zoom-reset");
+Check("browser: find/search", cheapBrowser[10].Key == "find" &&
+    cheapBrowser[10].Text == "hello" && cheapBrowser[11].Key == "search" &&
+    cheapBrowser[11].Text == "nexus mods");
+Check("browser: copy/scroll", cheapBrowser[12].Key == "copy-url" &&
+    cheapBrowser[13].Key == "scroll-top" && cheapBrowser[14].Key == "scroll-bottom");
+Check("browser: select", cheapBrowser[15].Key == "tab-select" && cheapBrowser[15].Number == 3);
+Check("browser: open in new tab", cheapBrowser[16].Key == "open-new-tab" &&
+    cheapBrowser[16].Text == "https://x.test");
+Check("browser: background tab", cheapBrowser[17].Key == "tab-new" &&
+    cheapBrowser[17].Modifiers1 == 1 && cheapBrowser[17].Number == 2);
+
+var systemMacro = MacroScript.Parse("""
+    clipboard set "hello world"
+    clipboard paste
+    run "notepad.exe" "C:\Temp\a.txt"
+    open "D:\Projects"
+    window activate "Notepad"
+    window minimize
+    window maximize
+    window restore
+    window close
+    volume +5
+    volume -3
+    mute
+    media next
+    screenshot
+    lock
+    sleep
+    profile next
+    profile prev
+    profile set games
+    layer next
+    layer prev
+    layer set 2
+    text {clipboard} {date} {time} {url} {param:page}
+    """);
+Check("система: clipboard", systemMacro[0].Kind == "clipboard-set" &&
+    systemMacro[0].Text == "hello world" && systemMacro[1].Kind == "clipboard-paste");
+Check("система: run/open", systemMacro[2].Kind == "run" &&
+    systemMacro[2].Text == "notepad.exe" && systemMacro[2].Text2 == "C:\\Temp\\a.txt" &&
+    systemMacro[3].Kind == "open" && systemMacro[3].Text == "D:\\Projects",
+    $"{systemMacro[2].Kind}|{systemMacro[2].Text}|{systemMacro[2].Text2}|{systemMacro[3].Kind}|{systemMacro[3].Text}");
+Check("система: window", systemMacro[4].Key == "activate" &&
+    systemMacro[4].Text == "Notepad" && systemMacro[5].Key == "minimize" &&
+    systemMacro[6].Key == "maximize" && systemMacro[7].Key == "restore" &&
+    systemMacro[8].Key == "close");
+Check("система: volume/mute/media", systemMacro[9].Kind == "volume" &&
+    systemMacro[9].Number == 5 && systemMacro[10].Number == -3 &&
+    systemMacro[11].Kind == "mute" && systemMacro[12].Kind == "media");
+Check("система: screenshot/lock/sleep", systemMacro[13].Kind == "screenshot" &&
+    systemMacro[14].Kind == "lock" && systemMacro[15].Kind == "sleep");
+Check("система: profile", systemMacro[16].Kind == "profile-next" &&
+    systemMacro[17].Kind == "profile-prev" && systemMacro[18].Kind == "profile-set" &&
+    systemMacro[18].Text == "games");
+Check("система: layer", systemMacro[19].Kind == "layer-next" &&
+    systemMacro[20].Kind == "layer-prev" && systemMacro[21].Kind == "layer-set" &&
+    systemMacro[21].Number == 2);
+var templateText = systemMacro[22].Text ?? "";
+Check("система: подстановки", systemMacro[22].Kind == "text" &&
+    templateText.Contains("{clipboard}") && templateText.Contains("{date}"));
+
+var blocks = MacroScript.Parse("""
+    repeat 3 {
+        press A
+        if browser.url contains "nexus" {
+            browser page +1
+        } else {
+            browser page -1
+        }
+    }
+    """);
+Check("блоки: repeat", blocks.Count == 1 && blocks[0].Kind == "repeat" &&
+    blocks[0].Number == 3 && blocks[0].Body?.Count == 2);
+var repeatBody = blocks[0].Body!;
+var ifStep = repeatBody[1];
+var ifBody = ifStep.Body!;
+var elseBody = ifStep.ElseBody!;
+Check("блоки: вложенный if", ifStep.Kind == "if" &&
+    ifStep.Text == "browser.url contains \"nexus\"" &&
+    ifBody.Count == 1 && elseBody.Count == 1);
+Check("блоки: тело if", ifBody[0].Key == "page" &&
+    ifBody[0].Number == 1 && elseBody[0].Number == -1);
 
 // ---------------------------------------------------------------- psf
 Check("кодирование A", PsfGenerator.EncodeLetterTrigger('A') == "700704",
